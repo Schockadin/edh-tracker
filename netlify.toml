@@ -1,0 +1,26 @@
+# Netlify configuration for the EDH Tracker Next.js app.
+# The official Next.js runtime is auto-detected, but we pin the build here.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  # Keep Netlify from running `next export`; we use the Next.js runtime.
+  NODE_VERSION = "22"
+
+# The @netlify/plugin-nextjs plugin is installed automatically for Next.js sites.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Ensure the service worker is always served fresh so PWA updates propagate.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
