@@ -34,6 +34,13 @@ function optionalText(max: number) {
     .transform((v) => (v && v.length > 0 ? v : null));
 }
 
+function optionalUrl(max: number) {
+  return z.preprocess(
+    (v) => (typeof v === "string" && v.trim() !== "" ? v.trim() : null),
+    z.string().url().max(max).nullable(),
+  );
+}
+
 export const deckInputSchema = z.object({
   name: z.string().trim().min(1, "Name fehlt").max(120),
   commander: z.string().trim().min(1, "Commander fehlt").max(160),
@@ -41,6 +48,8 @@ export const deckInputSchema = z.object({
   url: z.string().trim().url("Ungültige URL").max(500),
   platform: z.enum(PLATFORMS),
   colorIdentity: z.array(z.enum(COLORS)).default([]),
+  commanderImage: optionalUrl(500),
+  partnerImage: optionalUrl(500),
   bracket: nullableInt(1, 5),
 });
 
@@ -60,7 +69,6 @@ export const gameInputSchema = z
       .optional()
       .transform((v) => (v && v.length > 0 ? v : null)),
     bracket: nullableInt(1, 5),
-    turnCount: nullableInt(1, 100),
     winnerType: z.enum(WINNER_TYPES),
     winnerOpponentIndex: nullableInt(0, 50),
     winTurn: nullableInt(1, 100),

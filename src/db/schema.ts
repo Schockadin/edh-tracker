@@ -48,6 +48,9 @@ export const decks = pgTable("decks", {
   url: text("url").notNull(),
   // Color identity as WUBRG letters, e.g. ["W","U","B"].
   colorIdentity: text("color_identity").array(),
+  // Scryfall art-crop image URLs for the commander(s), for display.
+  commanderImage: text("commander_image"),
+  partnerImage: text("partner_image"),
   // Typical bracket of the deck (1-5, WOTC Commander Brackets).
   bracket: integer("bracket"),
   archived: boolean("archived").notNull().default(false),

@@ -12,6 +12,8 @@ export interface DeckView {
   platform: Platform;
   url: string;
   colorIdentity: string[];
+  commanderImage: string | null;
+  partnerImage: string | null;
   bracket: number | null;
   archived: boolean;
   createdAt: string;

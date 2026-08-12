@@ -8,8 +8,14 @@ import {
   updateDeck,
 } from "@/app/(app)/decks/actions";
 import type { Platform } from "@/db/schema";
-import { COLORS, PLATFORMS } from "@/lib/validation";
+import {
+  getCardByName,
+  sortColorIdentity,
+  type ScryCard,
+} from "@/lib/scryfall";
 import { COLOR_HEX, PLATFORM_LABELS, type DeckView } from "@/lib/types";
+import { COLORS, PLATFORMS } from "@/lib/validation";
+import { CardInput } from "./card-input";
 
 function detectPlatform(url: string): Platform {
   const u = url.toLowerCase();
@@ -28,6 +34,18 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
   const [partnerCommander, setPartnerCommander] = useState(
     deck?.partnerCommander ?? "",
   );
+  const [commanderCard, setCommanderCard] = useState<ScryCard | null>(null);
+  const [partnerCard, setPartnerCard] = useState<ScryCard | null>(null);
+  const [commanderImage, setCommanderImage] = useState<string | null>(
+    deck?.commanderImage ?? null,
+  );
+  const [partnerImage, setPartnerImage] = useState<string | null>(
+    deck?.partnerImage ?? null,
+  );
+  const [commanderValid, setCommanderValid] = useState(
+    editing && Boolean(deck?.commander),
+  );
+  const [partnerValid, setPartnerValid] = useState(true);
   const [colorIdentity, setColorIdentity] = useState<string[]>(
     deck?.colorIdentity ?? [],
   );
@@ -39,6 +57,16 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
   const [info, setInfo] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  // Color identity is authoritative from Scryfall: derive it from the resolved
+  // commander(s). Only overrides the pips when at least one card is resolved.
+  function applyDerivedColors(cards: (ScryCard | null)[]) {
+    const resolved = cards.filter(Boolean) as ScryCard[];
+    if (resolved.length === 0) return;
+    const union = new Set<string>();
+    for (const c of resolved) for (const col of c.colorIdentity) union.add(col);
+    setColorIdentity(sortColorIdentity(union));
+  }
 
   function toggleColor(c: string) {
     setColorIdentity((prev) =>
@@ -58,18 +86,31 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
       const meta = await fetchDeckMeta(url);
       setPlatform(meta.platform);
       if (meta.name) setName(meta.name);
-      if (meta.commander) setCommander(meta.commander);
-      if (meta.partnerCommander) setPartnerCommander(meta.partnerCommander);
-      if (meta.colorIdentity && meta.colorIdentity.length > 0) {
-        setColorIdentity(meta.colorIdentity);
+
+      // Resolve commander/partner names against Scryfall for image + colors.
+      let cmdCard: ScryCard | null = null;
+      let partCard: ScryCard | null = null;
+      if (meta.commander) {
+        setCommander(meta.commander);
+        cmdCard = await getCardByName(meta.commander);
+        setCommanderCard(cmdCard);
+        setCommanderImage(cmdCard?.artCrop ?? null);
+        setCommanderValid(Boolean(cmdCard));
       }
-      if (!meta.commander) {
-        setInfo(
-          "Konnte keine Deck-Details automatisch laden — bitte manuell ausfüllen.",
-        );
-      } else {
-        setInfo("Deck-Details geladen.");
+      if (meta.partnerCommander) {
+        setPartnerCommander(meta.partnerCommander);
+        partCard = await getCardByName(meta.partnerCommander);
+        setPartnerCard(partCard);
+        setPartnerImage(partCard?.artCrop ?? null);
+        setPartnerValid(Boolean(partCard));
       }
+      applyDerivedColors([cmdCard, partCard]);
+
+      setInfo(
+        meta.commander
+          ? "Deck-Details geladen."
+          : "Konnte keine Deck-Details automatisch laden (Plattform blockiert evtl. den Zugriff) — bitte Commander manuell eingeben; Farben & Bild kommen dann von Scryfall.",
+      );
     } catch {
       setInfo("Automatischer Import fehlgeschlagen — bitte manuell ausfüllen.");
     } finally {
@@ -80,6 +121,16 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!commander.trim() || !commanderValid) {
+      setError("Bitte einen gültigen Commander (aus den Vorschlägen) wählen.");
+      return;
+    }
+    if (partnerCommander.trim() && !partnerValid) {
+      setError("Der Partner ist keine gültige Karte.");
+      return;
+    }
+
     const input = {
       name,
       commander,
@@ -87,14 +138,16 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
       url,
       platform,
       colorIdentity: colorIdentity.filter((c) => COLORS.includes(c as never)),
+      commanderImage,
+      partnerImage,
       bracket: bracket === "" ? null : Number(bracket),
     };
     startTransition(async () => {
       const result = editing
         ? await updateDeck(deck!.id, input)
         : await createDeck(input);
-      // On success the action redirects; only errors return here.
-      if (result && !result.ok) setError(result.error ?? "Fehler beim Speichern.");
+      if (result && !result.ok)
+        setError(result.error ?? "Fehler beim Speichern.");
     });
   }
 
@@ -127,12 +180,12 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
               {fetching ? "Lädt…" : "Details laden"}
             </button>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-muted">
             Plattform erkannt: {PLATFORM_LABELS[platform]}
           </p>
         </div>
 
-        {info ? <p className="text-sm text-arcane-300">{info}</p> : null}
+        {info ? <p className="text-sm accent">{info}</p> : null}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -168,29 +221,69 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
             <label htmlFor="commander" className="label">
               Commander
             </label>
-            <input
+            <CardInput
               id="commander"
-              className="input"
               value={commander}
-              onChange={(e) => setCommander(e.target.value)}
+              onChange={setCommander}
+              placeholder="z. B. Atraxa, Praetors' Voice"
               required
+              ariaLabel="Commander"
+              initiallyValid={editing && Boolean(deck?.commander)}
+              onResolved={(card) => {
+                setCommanderCard(card);
+                setCommanderImage(card?.artCrop ?? null);
+                setCommanderValid(Boolean(card));
+                applyDerivedColors([card, partnerCard]);
+              }}
             />
           </div>
           <div>
             <label htmlFor="partner" className="label">
               Partner / Hintergrund (optional)
             </label>
-            <input
+            <CardInput
               id="partner"
-              className="input"
               value={partnerCommander}
-              onChange={(e) => setPartnerCommander(e.target.value)}
+              onChange={setPartnerCommander}
+              placeholder="optional"
+              ariaLabel="Partner"
+              initiallyValid={editing && Boolean(deck?.partnerCommander)}
+              onResolved={(card) => {
+                setPartnerCard(card);
+                setPartnerImage(card?.artCrop ?? null);
+                setPartnerValid(Boolean(card) || partnerCommander.trim() === "");
+                applyDerivedColors([commanderCard, card]);
+              }}
             />
           </div>
         </div>
 
+        {/* Commander art preview */}
+        {commanderImage || partnerImage ? (
+          <div className="flex flex-wrap gap-3">
+            {commanderImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={commanderImage}
+                alt={commander}
+                className="h-24 rounded-lg border divider object-cover"
+                loading="lazy"
+              />
+            ) : null}
+            {partnerImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={partnerImage}
+                alt={partnerCommander}
+                className="h-24 rounded-lg border divider object-cover"
+                loading="lazy"
+              />
+            ) : null}
+          </div>
+        ) : null}
+
         <div>
-          <span className="label">Farbidentität</span>
+          <span className="label">Farbidentität (aus Scryfall)</span>
           <div className="flex gap-2">
             {COLORS.map((c) => {
               const active = colorIdentity.includes(c);
@@ -202,7 +295,7 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
                   className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-bold transition ${
                     active
                       ? "border-white/60 ring-2 ring-white/40"
-                      : "border-white/10 opacity-50 hover:opacity-100"
+                      : "divider opacity-40 hover:opacity-100"
                   }`}
                   style={{ backgroundColor: COLOR_HEX[c], color: "#020617" }}
                   aria-pressed={active}
@@ -235,11 +328,15 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
         </div>
       </div>
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
       <div className="flex gap-3">
         <button type="submit" className="btn-primary" disabled={pending}>
-          {pending ? "Speichern…" : editing ? "Änderungen speichern" : "Deck speichern"}
+          {pending
+            ? "Speichern…"
+            : editing
+              ? "Änderungen speichern"
+              : "Deck speichern"}
         </button>
         <a href="/decks" className="btn-ghost">
           Abbrechen

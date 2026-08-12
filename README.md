@@ -11,8 +11,15 @@ Passwort und ein signiertes Session-Cookie.
 ## Features
 
 - **Decks per Link** von Moxfield, ManaBox oder Archidekt speichern.
-  Commander, Partner und Farbidentität werden — wo möglich — automatisch von der
-  jeweiligen öffentlichen API geladen („Details laden"); ansonsten manuelle Eingabe.
+  Der Deck-Name wird — wo möglich — per „Details laden" von der Plattform geholt
+  (best-effort; Moxfield blockt serverseitige Zugriffe teils per Cloudflare).
+- **Scryfall-Anbindung** für alle Kartenfelder (Commander, Partner, Gegner):
+  Autocomplete beim Tippen und Validierung, sodass nur echte Karten gespeichert
+  werden. Farbidentität und Commander-Bild werden automatisch von Scryfall
+  bezogen (Aufruf direkt aus dem Browser, daher unabhängig von Plattform-Blocks).
+- **Commander-Bilder**: eigene Decks zeigen das Commander-(und Partner-)Artwork.
+- **Theme**: Hell / Dunkel / System (Standard: System), umschaltbar auf allen
+  Seiten; die Präferenz wird lokal gespeichert.
 - **Spielrunden erfassen**: eigenes Deck wählen, gegnerische Commander, Bracket
   (1–5), Anzahl Turns.
 - **Sieg-Tracking**: Wer hat gewonnen, in **welchem Turn** und **wie**

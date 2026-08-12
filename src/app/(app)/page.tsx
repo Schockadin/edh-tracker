@@ -24,7 +24,7 @@ function StatTile({
     <div className="card">
       <div className="stat-label">{label}</div>
       <div className="stat-value mt-1">{value}</div>
-      {hint ? <div className="mt-1 text-xs text-slate-400">{hint}</div> : null}
+      {hint ? <div className="mt-1 text-xs text-muted">{hint}</div> : null}
     </div>
   );
 }
@@ -43,7 +43,7 @@ function ChartCard({
       <div className="mb-3">
         <h2 className="font-semibold">{title}</h2>
         {subtitle ? (
-          <p className="text-xs text-slate-400">{subtitle}</p>
+          <p className="text-xs text-muted">{subtitle}</p>
         ) : null}
       </div>
       {children}
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
       <div className="card mx-auto max-w-lg text-center">
         <div className="mb-2 text-4xl">🃏</div>
         <h1 className="text-xl font-bold">Willkommen beim EDH Tracker</h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-muted">
           Lege zuerst ein Deck an, indem du einen Moxfield-, ManaBox- oder
           Archidekt-Link speicherst. Danach kannst du Spielrunden erfassen und
           deine Statistiken auswerten.

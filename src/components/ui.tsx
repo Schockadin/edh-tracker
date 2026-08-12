@@ -4,7 +4,7 @@ import type { Platform } from "@/db/schema";
 /** Small colored pips for a deck's color identity. */
 export function ColorPips({ colors }: { colors: string[] }) {
   if (!colors || colors.length === 0) {
-    return <span className="text-xs text-slate-500">farblos</span>;
+    return <span className="text-xs text-subtle">farblos</span>;
   }
   return (
     <span className="inline-flex items-center gap-1">

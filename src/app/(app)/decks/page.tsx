@@ -19,12 +19,29 @@ function DeckCard({
   wins: number;
 }) {
   const winRate = games > 0 ? Math.round((wins / games) * 100) : 0;
+  const images = [deck.commanderImage, deck.partnerImage].filter(
+    (u): u is string => Boolean(u),
+  );
   return (
     <div className="card flex flex-col gap-3">
+      {images.length > 0 ? (
+        <div className="-mx-5 -mt-5 mb-1 flex gap-px overflow-hidden rounded-t-xl">
+          {images.map((src) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={src}
+              src={src}
+              alt={deck.commander}
+              className="h-24 w-full object-cover"
+              loading="lazy"
+            />
+          ))}
+        </div>
+      ) : null}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">{deck.name}</h3>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             {deck.commander}
             {deck.partnerCommander ? ` + ${deck.partnerCommander}` : ""}
           </p>
@@ -42,19 +59,19 @@ function DeckCard({
         </span>
       </div>
 
-      <div className="mt-auto flex items-center justify-between border-t border-white/5 pt-3">
+      <div className="mt-auto flex items-center justify-between border-t divider-soft pt-3">
         <div className="flex gap-3 text-xs">
           <a
             href={deck.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-arcane-300 hover:text-arcane-200"
+            className="link"
           >
             Deckliste ↗
           </a>
           <Link
             href={`/decks/${deck.id}/edit`}
-            className="text-slate-300 hover:text-white"
+            className="text-soft hover:text-strong"
           >
             Bearbeiten
           </Link>
@@ -85,7 +102,7 @@ export default async function DecksPage() {
       />
 
       {decks.length === 0 ? (
-        <div className="card text-center text-slate-400">
+        <div className="card text-center text-muted">
           Noch keine Decks. Lege dein erstes Deck über einen Moxfield-,
           ManaBox- oder Archidekt-Link an.
         </div>
@@ -107,7 +124,7 @@ export default async function DecksPage() {
 
       {archived.length > 0 ? (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">
             Archiviert
           </h2>
           <div className="grid gap-4 opacity-70 sm:grid-cols-2">

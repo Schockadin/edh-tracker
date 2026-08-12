@@ -46,6 +46,8 @@ export async function createDeck(input: unknown): Promise<ActionState> {
     url: parsed.data.url,
     platform: parsed.data.platform,
     colorIdentity: parsed.data.colorIdentity,
+    commanderImage: parsed.data.commanderImage,
+    partnerImage: parsed.data.partnerImage,
     bracket: parsed.data.bracket,
   });
 
@@ -70,6 +72,8 @@ export async function updateDeck(
       url: parsed.data.url,
       platform: parsed.data.platform,
       colorIdentity: parsed.data.colorIdentity,
+      commanderImage: parsed.data.commanderImage,
+      partnerImage: parsed.data.partnerImage,
       bracket: parsed.data.bracket,
       updatedAt: new Date(),
     })

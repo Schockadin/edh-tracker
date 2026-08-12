@@ -18,9 +18,9 @@ const dateFmt = new Intl.DateTimeFormat("de-DE", {
 
 function ResultBadge({ game }: { game: GameView }) {
   const map = {
-    me: "bg-emerald-600/20 text-emerald-300 border-emerald-500/30",
-    opponent: "bg-red-600/20 text-red-300 border-red-500/30",
-    draw: "bg-slate-600/20 text-slate-300 border-slate-500/30",
+    me: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+    opponent: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
+    draw: "bg-slate-400/15 text-slate-600 dark:text-slate-300 border-slate-400/40",
   } as const;
   return (
     <span
@@ -47,13 +47,13 @@ function GameCard({ game }: { game: GameView }) {
         <div>
           <div className="flex items-center gap-2">
             <ResultBadge game={game} />
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-muted">
               {dateFmt.format(new Date(game.playedAt))}
             </span>
           </div>
           <h3 className="mt-1 font-semibold">
             {game.deckName}{" "}
-            <span className="font-normal text-slate-400">
+            <span className="font-normal text-muted">
               — {game.deckCommander}
             </span>
           </h3>
@@ -68,30 +68,27 @@ function GameCard({ game }: { game: GameView }) {
         {game.winTurn ? (
           <span className="badge">Sieg in Turn {game.winTurn}</span>
         ) : null}
-        {game.turnCount ? (
-          <span className="badge">{game.turnCount} Turns</span>
-        ) : null}
         {game.winType ? (
           <span className="badge">{WIN_TYPE_LABELS[game.winType]}</span>
         ) : null}
       </div>
 
       {winner ? (
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-soft">
           Gewonnen von <span className="font-medium">{winner.commander}</span>
           {winner.playerName ? ` (${winner.playerName})` : ""}
         </p>
       ) : null}
 
       {game.opponents.length > 0 ? (
-        <div className="text-sm text-slate-400">
-          <span className="text-slate-500">Gegner: </span>
+        <div className="text-sm text-muted">
+          <span className="text-subtle">Gegner: </span>
           {game.opponents.map((o) => o.commander).join(", ")}
         </div>
       ) : null}
 
       {game.notes ? (
-        <p className="border-t border-white/5 pt-2 text-sm text-slate-300">
+        <p className="border-t divider-soft pt-2 text-sm text-soft">
           {game.notes}
         </p>
       ) : null}
@@ -114,7 +111,7 @@ export default async function GamesPage() {
       />
 
       {games.length === 0 ? (
-        <div className="card text-center text-slate-400">
+        <div className="card text-center text-muted">
           Noch keine Spiele erfasst.
         </div>
       ) : (

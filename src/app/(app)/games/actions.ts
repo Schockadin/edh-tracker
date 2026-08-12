@@ -40,7 +40,6 @@ export async function createGame(input: unknown): Promise<ActionState> {
         deckId: data.deckId,
         playedAt: data.playedAt ? new Date(data.playedAt) : undefined,
         bracket: data.bracket,
-        turnCount: data.turnCount,
         winnerType: data.winnerType,
         winTurn: data.winTurn,
         winType: data.winType,

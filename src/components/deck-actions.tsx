@@ -17,7 +17,7 @@ export function DeckActions({
     <div className="flex items-center gap-2">
       <button
         type="button"
-        className="text-xs text-slate-400 hover:text-slate-200"
+        className="text-xs text-muted hover:text-soft"
         disabled={pending}
         onClick={() =>
           startTransition(async () => {

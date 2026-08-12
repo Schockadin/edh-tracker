@@ -21,6 +21,8 @@ function serializeDeck(deck: Deck): DeckView {
     platform: deck.platform,
     url: deck.url,
     colorIdentity: deck.colorIdentity ?? [],
+    commanderImage: deck.commanderImage,
+    partnerImage: deck.partnerImage,
     bracket: deck.bracket,
     archived: deck.archived,
     createdAt: deck.createdAt.toISOString(),

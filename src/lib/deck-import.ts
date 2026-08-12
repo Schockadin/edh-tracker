@@ -30,7 +30,11 @@ export function detectPlatform(rawUrl: string): Platform {
   return "other";
 }
 
-async function fetchJson(url: string, timeoutMs = 8000): Promise<unknown> {
+async function fetchJson(
+  url: string,
+  referer?: string,
+  timeoutMs = 8000,
+): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -38,9 +42,15 @@ async function fetchJson(url: string, timeoutMs = 8000): Promise<unknown> {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
-        "User-Agent": "edh-tracker/1.0 (+personal use)",
+        // A browser-like UA improves the odds against bot filtering. Note that
+        // Moxfield fronts its API with Cloudflare and may still return 403 for
+        // server-side requests — callers must handle that gracefully. Card
+        // data (colors, images) is sourced from Scryfall on the client, so a
+        // failed platform import never degrades the saved deck.
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        ...(referer ? { Referer: referer } : {}),
       },
-      // Deck lists change rarely; let the platform's cache headers apply.
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -65,6 +75,7 @@ async function importMoxfield(url: string): Promise<DeckImportResult> {
   try {
     const data = (await fetchJson(
       `https://api2.moxfield.com/v3/decks/all/${id}`,
+      "https://www.moxfield.com/",
     )) as MoxfieldDeck;
     const commanderCards = Object.values(data.boards?.commanders?.cards ?? {})
       .map((entry) => entry.card)
@@ -112,6 +123,7 @@ async function importArchidekt(url: string): Promise<DeckImportResult> {
   try {
     const data = (await fetchJson(
       `https://archidekt.com/api/decks/${id}/`,
+      "https://archidekt.com/",
     )) as ArchidektDeck;
     const commanders = (data.cards ?? []).filter((c) =>
       (c.categories ?? []).some((cat) => cat.toLowerCase() === "commander"),

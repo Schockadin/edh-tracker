@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { ThemeProvider, themeInitScript } from "@/components/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,7 +25,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1e1b4b",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f6fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#1e1b4b" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -34,10 +38,13 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="de">
+    <html lang="de" suppressHydrationWarning>
       <body>
-        {children}
-        <ServiceWorkerRegister />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <ThemeProvider>
+          {children}
+          <ServiceWorkerRegister />
+        </ThemeProvider>
       </body>
     </html>
   );

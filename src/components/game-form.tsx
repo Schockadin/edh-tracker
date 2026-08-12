@@ -10,11 +10,14 @@ import {
   type DeckView,
 } from "@/lib/types";
 import { WIN_TYPES } from "@/lib/validation";
+import { CardInput } from "./card-input";
 
 interface OpponentRow {
   playerName: string;
   commander: string;
   partnerCommander: string;
+  commanderValid: boolean;
+  partnerValid: boolean;
 }
 
 function nowLocal(): string {
@@ -29,6 +32,8 @@ const emptyOpponent: OpponentRow = {
   playerName: "",
   commander: "",
   partnerCommander: "",
+  commanderValid: true,
+  partnerValid: true,
 };
 
 export function GameForm({ decks }: { decks: DeckView[] }) {
@@ -37,7 +42,6 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
   );
   const [playedAt, setPlayedAt] = useState<string>(nowLocal());
   const [bracket, setBracket] = useState<string>("");
-  const [turnCount, setTurnCount] = useState<string>("");
   const [opponents, setOpponents] = useState<OpponentRow[]>([
     { ...emptyOpponent },
     { ...emptyOpponent },
@@ -76,24 +80,39 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
     e.preventDefault();
     setError(null);
 
-    // Only send opponent rows that actually have a commander.
     const filledOpponents = opponents
       .map((o, idx) => ({ ...o, _idx: idx }))
       .filter((o) => o.commander.trim().length > 0);
 
-    // Map the selected winner (by original row index) to its new position.
+    // Enforce that entered cards are real Scryfall cards.
+    if (filledOpponents.some((o) => !o.commanderValid)) {
+      setError("Ein Gegner-Commander ist keine gültige Karte.");
+      return;
+    }
+    if (
+      filledOpponents.some(
+        (o) => o.partnerCommander.trim().length > 0 && !o.partnerValid,
+      )
+    ) {
+      setError("Ein Gegner-Partner ist keine gültige Karte.");
+      return;
+    }
+
     let winnerIndex: number | null = null;
     if (winnerType === "opponent" && winnerOpponentIndex !== "") {
       const origIdx = Number(winnerOpponentIndex);
       const pos = filledOpponents.findIndex((o) => o._idx === origIdx);
       winnerIndex = pos >= 0 ? pos : null;
     }
+    if (winnerType === "opponent" && winnerIndex === null) {
+      setError("Bitte den siegreichen Gegner auswählen (mit Commander).");
+      return;
+    }
 
     const input = {
       deckId: Number(deckId),
       playedAt: playedAt || null,
       bracket: bracket === "" ? null : Number(bracket),
-      turnCount: turnCount === "" ? null : Number(turnCount),
       winnerType,
       winnerOpponentIndex: winnerIndex,
       winTurn: winTurn === "" ? null : Number(winTurn),
@@ -106,11 +125,6 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
       })),
     };
 
-    if (winnerType === "opponent" && winnerIndex === null) {
-      setError("Bitte den siegreichen Gegner auswählen (mit Commander).");
-      return;
-    }
-
     startTransition(async () => {
       const result = await createGame(input);
       if (result && !result.ok)
@@ -120,9 +134,9 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
 
   if (decks.length === 0) {
     return (
-      <div className="card text-center text-slate-400">
+      <div className="card text-center text-muted">
         Du brauchst zuerst mindestens ein Deck.{" "}
-        <a href="/decks/new" className="text-arcane-300">
+        <a href="/decks/new" className="link">
           Jetzt anlegen
         </a>
         .
@@ -146,9 +160,7 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
               value={deckId}
               onChange={(e) => {
                 setDeckId(e.target.value);
-                const d = decks.find(
-                  (x) => String(x.id) === e.target.value,
-                );
+                const d = decks.find((x) => String(x.id) === e.target.value);
                 if (d?.bracket) setBracket(String(d.bracket));
               }}
               required
@@ -190,23 +202,9 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
               ))}
             </select>
           </div>
-          <div>
-            <label htmlFor="turnCount" className="label">
-              Anzahl Turns (optional)
-            </label>
-            <input
-              id="turnCount"
-              type="number"
-              min={1}
-              className="input"
-              value={turnCount}
-              onChange={(e) => setTurnCount(e.target.value)}
-              placeholder="z. B. 8"
-            />
-          </div>
         </div>
         {selectedDeck ? (
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted">
             Farbidentität: {selectedDeck.colorIdentity.join("") || "farblos"}
           </p>
         ) : null}
@@ -220,14 +218,15 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
             + Gegner
           </button>
         </div>
-        <p className="text-xs text-slate-400">
-          Trage die gegnerischen Commander ein. Leere Zeilen werden ignoriert.
+        <p className="text-xs text-muted">
+          Gegnerische Commander mit Scryfall-Vorschlägen. Leere Zeilen werden
+          ignoriert.
         </p>
         <div className="space-y-3">
           {opponents.map((o, i) => (
             <div
               key={i}
-              className="grid gap-2 rounded-lg border border-white/5 p-3 sm:grid-cols-[1fr_1.4fr_1.4fr_auto]"
+              className="grid gap-2 rounded-lg border divider-soft p-3 sm:grid-cols-[1fr_1.4fr_1.4fr_auto]"
             >
               <input
                 className="input"
@@ -237,25 +236,49 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
                   updateOpponent(i, { playerName: e.target.value })
                 }
               />
-              <input
-                className="input"
-                placeholder="Commander"
+              <CardInput
                 value={o.commander}
-                onChange={(e) =>
-                  updateOpponent(i, { commander: e.target.value })
+                onChange={(v) => updateOpponent(i, { commander: v })}
+                placeholder="Commander"
+                ariaLabel={`Gegner ${i + 1} Commander`}
+                onResolved={(card) =>
+                  setOpponents((prev) =>
+                    prev.map((row, idx) =>
+                      idx === i
+                        ? {
+                            ...row,
+                            commanderValid: card
+                              ? true
+                              : row.commander.trim() === "",
+                          }
+                        : row,
+                    ),
+                  )
                 }
               />
-              <input
-                className="input"
-                placeholder="Partner (optional)"
+              <CardInput
                 value={o.partnerCommander}
-                onChange={(e) =>
-                  updateOpponent(i, { partnerCommander: e.target.value })
+                onChange={(v) => updateOpponent(i, { partnerCommander: v })}
+                placeholder="Partner (optional)"
+                ariaLabel={`Gegner ${i + 1} Partner`}
+                onResolved={(card) =>
+                  setOpponents((prev) =>
+                    prev.map((row, idx) =>
+                      idx === i
+                        ? {
+                            ...row,
+                            partnerValid: card
+                              ? true
+                              : row.partnerCommander.trim() === "",
+                          }
+                        : row,
+                    ),
+                  )
                 }
               />
               <button
                 type="button"
-                className="text-xs text-red-400 hover:text-red-300"
+                className="text-xs text-red-500 hover:text-red-400"
                 onClick={() => removeOpponent(i)}
                 aria-label="Gegner entfernen"
               >
@@ -364,7 +387,7 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
         </div>
       </div>
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
       <div className="flex gap-3">
         <button type="submit" className="btn-primary" disabled={pending}>
