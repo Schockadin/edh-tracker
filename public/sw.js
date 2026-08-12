@@ -7,7 +7,7 @@
  *   - Everything else same-origin GET: network, fall back to cache.
  * Bump CACHE_VERSION to force clients onto a fresh cache.
  */
-const CACHE_VERSION = "edh-tracker-v1";
+const CACHE_VERSION = "edh-tracker-v2";
 const PRECACHE = `${CACHE_VERSION}-precache`;
 const RUNTIME = `${CACHE_VERSION}-runtime`;
 

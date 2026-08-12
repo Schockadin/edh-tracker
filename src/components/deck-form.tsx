@@ -258,30 +258,6 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
           </div>
         </div>
 
-        {/* Commander art preview */}
-        {commanderImage || partnerImage ? (
-          <div className="flex flex-wrap gap-3">
-            {commanderImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={commanderImage}
-                alt={commander}
-                className="h-24 rounded-lg border divider object-cover"
-                loading="lazy"
-              />
-            ) : null}
-            {partnerImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={partnerImage}
-                alt={partnerCommander}
-                className="h-24 rounded-lg border divider object-cover"
-                loading="lazy"
-              />
-            ) : null}
-          </div>
-        ) : null}
-
         <div>
           <span className="label">Farbidentität (aus Scryfall)</span>
           <div className="flex gap-2">

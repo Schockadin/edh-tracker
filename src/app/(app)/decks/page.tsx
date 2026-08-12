@@ -32,7 +32,7 @@ function DeckCard({
               key={src}
               src={src}
               alt={deck.commander}
-              className="h-24 w-full object-cover"
+              className="h-14 w-full object-cover"
               loading="lazy"
             />
           ))}

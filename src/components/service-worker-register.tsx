@@ -16,6 +16,21 @@ export function ServiceWorkerRegister() {
       return;
     }
 
+    // When an updated service worker takes control, reload once so the page
+    // picks up fresh CSS/JS instead of the previously cached version. Guard
+    // against the first-ever activation (no prior controller) and reload loops.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let refreshing = false;
+    const onControllerChange = () => {
+      if (!hadController || refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      onControllerChange,
+    );
+
     const register = () => {
       navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
         /* registration is best-effort; ignore failures */
