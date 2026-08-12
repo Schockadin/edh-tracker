@@ -1,3 +1,5 @@
+import "./src/db/load-env"; // populate DATABASE_URL from .env.local / .env
+
 import { defineConfig } from "drizzle-kit";
 
 const url = process.env.DATABASE_URL;

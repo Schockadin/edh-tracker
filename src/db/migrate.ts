@@ -2,6 +2,8 @@
  * Standalone migration runner. Applies everything in ./drizzle to the database
  * pointed at by DATABASE_URL. Run with: `npm run db:migrate`.
  */
+import "./load-env"; // must be first: populates DATABASE_URL from .env(.local)
+
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";

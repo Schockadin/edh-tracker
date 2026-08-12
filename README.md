@@ -53,9 +53,11 @@ Voraussetzungen: **Node 22+** und eine PostgreSQL-Datenbank.
 npm install
 
 # 2. Environment einrichten
-cp .env.example .env
+cp .env.example .env          # `.env.local` funktioniert ebenfalls
 #   DATABASE_URL, APP_PASSWORD und AUTH_SECRET setzen.
 #   AUTH_SECRET erzeugen:  openssl rand -base64 48
+#   Hinweis: Sowohl die App als auch `db:migrate`/`drizzle-kit` laden `.env`
+#   und `.env.local` automatisch (echte Env-Variablen haben Vorrang).
 
 # 3. Datenbank-Schema anlegen
 npm run db:migrate      # wendet die Migrationen in ./drizzle an
