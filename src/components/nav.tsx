@@ -31,7 +31,6 @@ export function Nav() {
             href="/"
             className="flex items-center gap-2 font-semibold text-strong"
           >
-            <span className="text-lg">🃏</span>
             <span className="hidden sm:inline">EDH Tracker</span>
           </Link>
           <nav className="hidden items-center gap-1 sm:flex">
