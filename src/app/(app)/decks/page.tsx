@@ -32,7 +32,7 @@ function DeckCard({
               key={src}
               src={src}
               alt={deck.commander}
-              className="h-14 w-full object-cover"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
           ))}
@@ -87,8 +87,12 @@ export default async function DecksPage() {
   const { deckStats } = computeStats(games, decks);
   const statById = new Map(deckStats.map((s) => [s.deckId, s]));
 
-  const active = decks.filter((d) => !d.archived);
-  const archived = decks.filter((d) => d.archived);
+  const active = decks
+    .filter((d) => !d.archived)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const archived = decks
+    .filter((d) => d.archived)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-6">
@@ -103,8 +107,8 @@ export default async function DecksPage() {
 
       {decks.length === 0 ? (
         <div className="card text-center text-muted">
-          Noch keine Decks. Lege dein erstes Deck über einen Moxfield-,
-          ManaBox- oder Archidekt-Link an.
+          Noch keine Decks. Lege dein erstes Deck über einen Moxfield-, ManaBox-
+          oder Archidekt-Link an.
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

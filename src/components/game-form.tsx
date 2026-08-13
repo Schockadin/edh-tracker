@@ -28,6 +28,11 @@ function nowLocal(): string {
   )}:${pad(d.getMinutes())}`;
 }
 
+function nowDate(): string {
+  const d = new Date();
+  return d.toISOString().split("T")[0];
+}
+
 const emptyOpponent: OpponentRow = {
   playerName: "",
   commander: "",
@@ -40,7 +45,7 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
   const [deckId, setDeckId] = useState<string>(
     decks[0] ? String(decks[0].id) : "",
   );
-  const [playedAt, setPlayedAt] = useState<string>(nowLocal());
+  const [playedAt, setPlayedAt] = useState<string>(nowDate());
   const [bracket, setBracket] = useState<string>("");
   const [opponents, setOpponents] = useState<OpponentRow[]>([
     { ...emptyOpponent },
@@ -167,18 +172,18 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
             >
               {decks.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name} — {d.commander}
+                  {d.name}
                 </option>
               ))}
             </select>
           </div>
           <div>
             <label htmlFor="playedAt" className="label">
-              Datum &amp; Uhrzeit
+              Datum
             </label>
             <input
               id="playedAt"
-              type="datetime-local"
+              type="date"
               className="input"
               value={playedAt}
               onChange={(e) => setPlayedAt(e.target.value)}

@@ -41,15 +41,20 @@ function GameCard({ game }: { game: GameView }) {
       ? game.opponents.find((o) => o.id === game.winnerOpponentId)
       : null;
 
+  const playedAt = new Date(game.playedAt)
+    .toISOString()
+    .split("T")[0]
+    .split("-")
+    .reverse()
+    .join(".");
+
   return (
     <div className="card space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <ResultBadge game={game} />
-            <span className="text-xs text-muted">
-              {dateFmt.format(new Date(game.playedAt))}
-            </span>
+            <span className="text-xs text-muted">{playedAt}</span>
           </div>
           <h3 className="mt-1 font-semibold">
             {game.deckName}{" "}
