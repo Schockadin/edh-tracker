@@ -2,12 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 
-import { createGame } from "@/app/(app)/games/actions";
+import { createGame, updateGame } from "@/app/(app)/games/actions";
 import type { WinType } from "@/db/schema";
 import {
   WINNER_TYPE_LABELS,
   WIN_TYPE_LABELS,
   type DeckView,
+  type GameView,
 } from "@/lib/types";
 import { WIN_TYPES } from "@/lib/validation";
 import { CardInput } from "./card-input";
@@ -18,14 +19,6 @@ interface OpponentRow {
   partnerCommander: string;
   commanderValid: boolean;
   partnerValid: boolean;
-}
-
-function nowLocal(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
 }
 
 function nowDate(): string {
@@ -41,24 +34,49 @@ const emptyOpponent: OpponentRow = {
   partnerValid: true,
 };
 
-export function GameForm({ decks }: { decks: DeckView[] }) {
+export function GameForm({
+  decks,
+  game,
+}: {
+  decks: DeckView[];
+  game?: GameView;
+}) {
+  const editing = Boolean(game);
   const [deckId, setDeckId] = useState<string>(
-    decks[0] ? String(decks[0].id) : "",
+    game ? String(game.deckId) : decks[0] ? String(decks[0].id) : "",
   );
-  const [playedAt, setPlayedAt] = useState<string>(nowDate());
-  const [bracket, setBracket] = useState<string>("");
-  const [opponents, setOpponents] = useState<OpponentRow[]>([
-    { ...emptyOpponent },
-    { ...emptyOpponent },
-    { ...emptyOpponent },
-  ]);
+  const [playedAt, setPlayedAt] = useState<string>(
+    game ? game.playedAt.slice(0, 10) : nowDate(),
+  );
+  const [bracket, setBracket] = useState<string>(
+    game?.bracket != null ? String(game.bracket) : "",
+  );
+  const [opponents, setOpponents] = useState<OpponentRow[]>(
+    game && game.opponents.length > 0
+      ? game.opponents.map((o) => ({
+          playerName: o.playerName ?? "",
+          commander: o.commander,
+          partnerCommander: o.partnerCommander ?? "",
+          commanderValid: true,
+          partnerValid: true,
+        }))
+      : [{ ...emptyOpponent }, { ...emptyOpponent }, { ...emptyOpponent }],
+  );
   const [winnerType, setWinnerType] = useState<"me" | "opponent" | "draw">(
-    "me",
+    game?.winnerType ?? "me",
   );
-  const [winnerOpponentIndex, setWinnerOpponentIndex] = useState<string>("");
-  const [winTurn, setWinTurn] = useState<string>("");
-  const [winType, setWinType] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
+  const initialWinnerIndex = useMemo(() => {
+    if (!game || game.winnerOpponentId == null) return "";
+    const idx = game.opponents.findIndex((o) => o.id === game.winnerOpponentId);
+    return idx >= 0 ? String(idx) : "";
+  }, [game]);
+  const [winnerOpponentIndex, setWinnerOpponentIndex] =
+    useState<string>(initialWinnerIndex);
+  const [winTurn, setWinTurn] = useState<string>(
+    game?.winTurn != null ? String(game.winTurn) : "",
+  );
+  const [winType, setWinType] = useState<string>(game?.winType ?? "");
+  const [notes, setNotes] = useState<string>(game?.notes ?? "");
 
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -131,7 +149,9 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
     };
 
     startTransition(async () => {
-      const result = await createGame(input);
+      const result = editing
+        ? await updateGame(game!.id, input)
+        : await createGame(input);
       if (result && !result.ok)
         setError(result.error ?? "Fehler beim Speichern.");
     });
@@ -396,7 +416,11 @@ export function GameForm({ decks }: { decks: DeckView[] }) {
 
       <div className="flex gap-3">
         <button type="submit" className="btn-primary" disabled={pending}>
-          {pending ? "Speichern…" : "Spiel speichern"}
+          {pending
+            ? "Speichern…"
+            : editing
+              ? "Änderungen speichern"
+              : "Spiel speichern"}
         </button>
         <a href="/games" className="btn-ghost">
           Abbrechen

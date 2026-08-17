@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 
 import { deleteGame } from "@/app/(app)/games/actions";
 
@@ -21,5 +22,16 @@ export function DeleteGameButton({ id }: { id: number }) {
     >
       Löschen
     </button>
+  );
+}
+
+export function EditGameButton({ id }: { id: number }) {
+  return (
+    <Link
+      href={`/games/${id}/edit`}
+      className="text-xs text-blue-400 hover:text-blue-300"
+    >
+      Bearbeiten
+    </Link>
   );
 }

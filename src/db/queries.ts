@@ -97,3 +97,18 @@ export const getGames = unstable_cache(
   ["games:list"],
   { tags: [CACHE_TAGS.games, CACHE_TAGS.decks] },
 );
+
+/**
+ * Get a single game based on its ID
+ */
+export const getGame = unstable_cache(
+  async (id: number): Promise<GameView | null> => {
+    const row = await db.query.games.findFirst({
+      where: (g, { eq }) => eq(g.id, id),
+      with: { deck: true, opponents: true },
+    });
+    return row ? serializeGame(row) : null;
+  },
+  ["games:one"],
+  { tags: [CACHE_TAGS.games, CACHE_TAGS.decks] },
+);
