@@ -39,7 +39,7 @@ export function GameForm({
   game,
 }: {
   decks: DeckView[];
-  game: GameView;
+  game?: GameView;
 }) {
   const editing = Boolean(game);
   const [deckId, setDeckId] = useState<string>(
