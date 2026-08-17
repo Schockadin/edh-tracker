@@ -22,7 +22,10 @@ function firstError(error: unknown): string {
     "issues" in error &&
     Array.isArray((error as { issues: { message: string }[] }).issues)
   ) {
-    return (error as { issues: { message: string }[] }).issues[0]?.message ?? "Ungültige Eingabe";
+    return (
+      (error as { issues: { message: string }[] }).issues[0]?.message ??
+      "Ungültige Eingabe"
+    );
   }
   return "Ungültige Eingabe";
 }
@@ -86,6 +89,66 @@ export async function deleteGame(id: number): Promise<void> {
   await requireSession();
   // Opponents cascade-delete via the FK.
   await db.delete(games).where(eq(games.id, id));
+  updateTag(CACHE_TAGS.games);
+  redirect("/games");
+}
+
+export async function updateGame(
+  id: number,
+  input: unknown,
+): Promise<ActionState> {
+  await requireSession();
+  const parsed = gameInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const data = parsed.data;
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(games)
+      .set({
+        deckId: data.deckId,
+        playedAt: data.playedAt ? new Date(data.playedAt) : undefined,
+        bracket: data.bracket,
+        winnerType: data.winnerType,
+        winTurn: data.winTurn,
+        winType: data.winType,
+        notes: data.notes,
+        winnerOpponentId: null, // erst nach Neu-Insert der Gegner setzen
+      })
+      .where(eq(games.id, id));
+
+    // Alte Gegner ersetzen statt zu mergen — einfacher und robust genug für
+    // die kleine Anzahl an Zeilen pro Spiel.
+    await tx.delete(gameOpponents).where(eq(gameOpponents.gameId, id));
+
+    let winnerOpponentId: number | null = null;
+    if (data.opponents.length > 0) {
+      const inserted = await tx
+        .insert(gameOpponents)
+        .values(
+          data.opponents.map((o) => ({
+            gameId: id,
+            playerName: o.playerName,
+            commander: o.commander,
+            partnerCommander: o.partnerCommander,
+          })),
+        )
+        .returning({ id: gameOpponents.id });
+
+      if (
+        data.winnerType === "opponent" &&
+        data.winnerOpponentIndex !== null &&
+        inserted[data.winnerOpponentIndex]
+      ) {
+        winnerOpponentId = inserted[data.winnerOpponentIndex].id;
+      }
+    }
+
+    if (winnerOpponentId !== null) {
+      await tx.update(games).set({ winnerOpponentId }).where(eq(games.id, id));
+    }
+  });
+
   updateTag(CACHE_TAGS.games);
   redirect("/games");
 }

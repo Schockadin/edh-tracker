@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { DeleteGameButton } from "@/components/game-actions";
+import { DeleteGameButton, EditGameButton } from "@/components/game-actions";
 import { SectionHeader } from "@/components/ui";
 import { getGames } from "@/db/queries";
 import { WIN_TYPE_LABELS, type GameView } from "@/lib/types";
@@ -63,7 +63,10 @@ function GameCard({ game }: { game: GameView }) {
             </span>
           </h3>
         </div>
-        <DeleteGameButton id={game.id} />
+        <div className="flex flex-col items-end gap-2">
+          <EditGameButton id={game.id} />
+          <DeleteGameButton id={game.id} />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
