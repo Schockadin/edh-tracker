@@ -9,6 +9,7 @@ import {
   WIN_TYPE_LABELS,
   type DeckView,
   type GameView,
+  type PlayerGroupView,
 } from "@/lib/types";
 import { WIN_TYPES } from "@/lib/validation";
 import { CardInput } from "./card-input";
@@ -37,9 +38,11 @@ const emptyOpponent: OpponentRow = {
 export function GameForm({
   decks,
   game,
+  groups,
 }: {
   decks: DeckView[];
   game?: GameView;
+  groups?: PlayerGroupView[];
 }) {
   const editing = Boolean(game);
   const [deckId, setDeckId] = useState<string>(
@@ -96,6 +99,19 @@ export function GameForm({
   }
   function removeOpponent(i: number) {
     setOpponents((prev) => prev.filter((_, idx) => idx !== i));
+    setWinnerOpponentIndex("");
+  }
+
+  function applyGroup(group: PlayerGroupView) {
+    setOpponents(
+      group.playerNames.map((playerName) => ({
+        playerName,
+        commander: "",
+        partnerCommander: "",
+        commanderValid: true,
+        partnerValid: true,
+      })),
+    );
     setWinnerOpponentIndex("");
   }
 
@@ -239,9 +255,31 @@ export function GameForm({
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Gegner</h2>
-          <button type="button" className="btn-ghost" onClick={addOpponent}>
-            + Gegner
-          </button>
+          <div className="flex items-center gap-2">
+            {groups && groups.length > 0 ? (
+              <select
+                className="select w-[200px]"
+                value=""
+                onChange={(e) => {
+                  const group = groups.find(
+                    (g) => String(g.id) === e.target.value,
+                  );
+                  if (group) applyGroup(group);
+                  e.target.value = "";
+                }}
+              >
+                <option value="">Gruppe laden…</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <button type="button" className="btn-ghost" onClick={addOpponent}>
+              + Gegner
+            </button>
+          </div>
         </div>
         <p className="text-xs text-muted">
           Gegnerische Commander mit Scryfall-Vorschlägen. Leere Zeilen werden

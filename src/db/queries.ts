@@ -3,13 +3,14 @@ import "server-only";
 import { desc } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
-import type { DeckView, GameView } from "@/lib/types";
+import type { DeckView, GameView, PlayerGroupView } from "@/lib/types";
 import { db } from "./index";
-import type { Deck, Game, GameOpponent } from "./schema";
+import type { Deck, Game, GameOpponent, PlayerGroup } from "./schema";
 
 export const CACHE_TAGS = {
   decks: "decks",
   games: "games",
+  groups: "groups",
 } as const;
 
 function serializeDeck(deck: Deck): DeckView {
@@ -111,4 +112,38 @@ export const getGame = unstable_cache(
   },
   ["games:one"],
   { tags: [CACHE_TAGS.games, CACHE_TAGS.decks] },
+);
+
+function serializePlayerGroup(group: PlayerGroup): PlayerGroupView {
+  return {
+    id: group.id,
+    name: group.name,
+    playerNames: group.playerNames ?? [],
+    createdAt: group.createdAt.toISOString(),
+    updatedAt: group.updatedAt.toISOString(),
+  };
+}
+
+/** Alle Gruppen, alphabetisch. Cached; invalidiert über den `groups`-Tag. */
+export const getPlayerGroups = unstable_cache(
+  async (): Promise<PlayerGroupView[]> => {
+    const rows = await db.query.playerGroups.findMany({
+      orderBy: (g, { asc }) => [asc(g.name)],
+    });
+    return rows.map(serializePlayerGroup);
+  },
+  ["groups:list"],
+  { tags: [CACHE_TAGS.groups] },
+);
+
+/** Eine einzelne Gruppe (oder null). Cached; invalidiert über den `groups`-Tag. */
+export const getPlayerGroup = unstable_cache(
+  async (id: number): Promise<PlayerGroupView | null> => {
+    const row = await db.query.playerGroups.findFirst({
+      where: (g, { eq }) => eq(g.id, id),
+    });
+    return row ? serializePlayerGroup(row) : null;
+  },
+  ["groups:one"],
+  { tags: [CACHE_TAGS.groups] },
 );

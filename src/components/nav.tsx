@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/", label: "Dashboard", icon: "📊" },
   { href: "/decks", label: "Decks", icon: "🗂️" },
   { href: "/games", label: "Spiele", icon: "⚔️" },
+  { href: "/groups", label: "Gruppen  ", icon: "👥" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {

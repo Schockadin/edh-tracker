@@ -128,8 +128,23 @@ export const gameOpponentsRelations = relations(gameOpponents, ({ one }) => ({
   }),
 }));
 
+export const playerGroups = pgTable("player_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  // Nur Namen — keine Commander, die kommen weiterhin manuell in game-form.
+  playerNames: text("player_names").array(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // --- Inferred types --------------------------------------------------------
 
+export type PlayerGroup = typeof playerGroups.$inferSelect;
+export type NewPlayerGroup = typeof playerGroups.$inferInsert;
 export type Deck = typeof decks.$inferSelect;
 export type NewDeck = typeof decks.$inferInsert;
 export type Game = typeof games.$inferSelect;

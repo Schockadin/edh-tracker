@@ -78,3 +78,11 @@ export const COLOR_HEX: Record<string, string> = {
   R: "#ef4444",
   G: "#22c55e",
 };
+
+export interface PlayerGroupView {
+  id: number;
+  name: string;
+  playerNames: string[];
+  createdAt: string;
+  updatedAt: string;
+}

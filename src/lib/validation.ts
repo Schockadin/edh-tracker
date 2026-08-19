@@ -90,4 +90,10 @@ export const gameInputSchema = z
     },
   );
 
+export const playerGroupInputSchema = z.object({
+  name: z.string().trim().min(1, "Name fehlt").max(120),
+  playerNames: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
+});
+
+export type PlayerGroupInput = z.infer<typeof playerGroupInputSchema>;
 export type GameInput = z.infer<typeof gameInputSchema>;
