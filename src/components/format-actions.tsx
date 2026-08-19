@@ -2,9 +2,9 @@
 
 import { useTransition } from "react";
 
-import { deleteGroup } from "@/app/(app)/settings/groups/actions";
+import { deleteFormat } from "@/app/(app)/settings/formats/actions";
 
-export function GroupActions({ id }: { id: number }) {
+export function FormatActions({ id }: { id: number }) {
   const [pending, startTransition] = useTransition();
   return (
     <button
@@ -12,9 +12,10 @@ export function GroupActions({ id }: { id: number }) {
       className="text-xs text-red-400 hover:text-red-300"
       disabled={pending}
       onClick={() => {
-        if (confirm("Diese Gruppe wirklich löschen?")) {
+        if (confirm("Dieses Format wirklich löschen?")) {
           startTransition(async () => {
-            await deleteGroup(id);
+            const result = await deleteFormat(id);
+            if (result && !result.ok) alert(result.error);
           });
         }
       }}

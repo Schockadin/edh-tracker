@@ -1,4 +1,9 @@
-import type { Platform, WinnerType, WinType } from "@/db/schema";
+import type {
+  ConstructionType,
+  Platform,
+  WinnerType,
+  WinType,
+} from "@/db/schema";
 
 // Serializable view models passed from server components to client components.
 // Timestamps are ISO strings so they survive the Next.js data cache and the
@@ -9,6 +14,7 @@ export interface DeckView {
   name: string;
   commander: string;
   partnerCommander: string | null;
+  formatId: number;
   platform: Platform;
   url: string;
   colorIdentity: string[];
@@ -32,6 +38,7 @@ export interface GameView {
   deckId: number;
   deckName: string;
   deckCommander: string;
+  formatId: number;
   playedAt: string;
   bracket: number | null;
   turnCount: number | null;
@@ -42,6 +49,23 @@ export interface GameView {
   notes: string | null;
   opponents: OpponentView[];
   createdAt: string;
+}
+
+export interface PlayerGroupView {
+  id: number;
+  name: string;
+  playerNames: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FormatView {
+  id: number;
+  name: string;
+  constructionType: ConstructionType;
+  multiplayer: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const WIN_TYPE_LABELS: Record<WinType, string> = {
@@ -65,10 +89,21 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   other: "Sonstige",
 };
 
+export const FORMAT_LABELS: Record<number, string> = {
+  1: "Commander",
+  2: "Pauper",
+  3: "Pre-Release",
+};
+
 export const WINNER_TYPE_LABELS: Record<WinnerType, string> = {
   me: "Ich",
   opponent: "Gegner",
   draw: "Unentschieden",
+};
+
+export const CONSTRUCTION_TYPE_LABELS: Record<ConstructionType, string> = {
+  constructed: "Constructed",
+  limited: "Limited",
 };
 
 export const COLOR_HEX: Record<string, string> = {
@@ -78,11 +113,3 @@ export const COLOR_HEX: Record<string, string> = {
   R: "#ef4444",
   G: "#22c55e",
 };
-
-export interface PlayerGroupView {
-  id: number;
-  name: string;
-  playerNames: string[];
-  createdAt: string;
-  updatedAt: string;
-}

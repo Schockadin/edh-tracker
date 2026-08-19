@@ -3,14 +3,20 @@ import "server-only";
 import { desc } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
-import type { DeckView, GameView, PlayerGroupView } from "@/lib/types";
+import type {
+  DeckView,
+  FormatView,
+  GameView,
+  PlayerGroupView,
+} from "@/lib/types";
 import { db } from "./index";
-import type { Deck, Game, GameOpponent, PlayerGroup } from "./schema";
+import type { Deck, Game, Format, GameOpponent, PlayerGroup } from "./schema";
 
 export const CACHE_TAGS = {
   decks: "decks",
   games: "games",
   groups: "groups",
+  formats: "formats",
 } as const;
 
 function serializeDeck(deck: Deck): DeckView {
@@ -19,6 +25,7 @@ function serializeDeck(deck: Deck): DeckView {
     name: deck.name,
     commander: deck.commander,
     partnerCommander: deck.partnerCommander,
+    formatId: deck.formatId,
     platform: deck.platform,
     url: deck.url,
     colorIdentity: deck.colorIdentity ?? [],
@@ -31,6 +38,17 @@ function serializeDeck(deck: Deck): DeckView {
   };
 }
 
+function serializeFormat(format: Format): FormatView {
+  return {
+    id: format.id,
+    name: format.name,
+    constructionType: format.constructionType,
+    multiplayer: format.multiplayer,
+    createdAt: format.createdAt.toISOString(),
+    updatedAt: format.updatedAt.toISOString(),
+  };
+}
+
 function serializeGame(
   game: Game & { deck: Deck; opponents: GameOpponent[] },
 ): GameView {
@@ -39,6 +57,7 @@ function serializeGame(
     deckId: game.deckId,
     deckName: game.deck.name,
     deckCommander: game.deck.commander,
+    formatId: game.deck.formatId,
     playedAt: game.playedAt.toISOString(),
     bracket: game.bracket,
     turnCount: game.turnCount,
@@ -146,4 +165,28 @@ export const getPlayerGroup = unstable_cache(
   },
   ["groups:one"],
   { tags: [CACHE_TAGS.groups] },
+);
+
+/** Alle Formate, alphabetisch. Cached; invalidiert über den `formats`-Tag. */
+export const getFormats = unstable_cache(
+  async (): Promise<FormatView[]> => {
+    const rows = await db.query.formats.findMany({
+      orderBy: (f, { asc }) => [asc(f.name)],
+    });
+    return rows.map(serializeFormat);
+  },
+  ["formats:list"],
+  { tags: [CACHE_TAGS.formats] },
+);
+
+/** Ein einzelnes Format (oder null). Cached; invalidiert über `formats`. */
+export const getFormat = unstable_cache(
+  async (id: number): Promise<FormatView | null> => {
+    const row = await db.query.formats.findFirst({
+      where: (f, { eq }) => eq(f.id, id),
+    });
+    return row ? serializeFormat(row) : null;
+  },
+  ["formats:one"],
+  { tags: [CACHE_TAGS.formats] },
 );

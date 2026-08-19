@@ -37,6 +37,11 @@ export const winTypeEnum = pgEnum("win_type", [
   "other",
 ]);
 
+export const constructionTypeEnum = pgEnum("construction_type", [
+  "constructed",
+  "limited",
+]);
+
 // --- Decks -----------------------------------------------------------------
 
 export const decks = pgTable("decks", {
@@ -44,6 +49,9 @@ export const decks = pgTable("decks", {
   name: text("name").notNull(),
   commander: text("commander").notNull(),
   partnerCommander: text("partner_commander"),
+  formatId: integer("format_id")
+    .notNull()
+    .references(() => formats.id),
   platform: platformEnum("platform").notNull().default("other"),
   url: text("url").notNull(),
   // Color identity as WUBRG letters, e.g. ["W","U","B"].
@@ -107,10 +115,48 @@ export const gameOpponents = pgTable("game_opponents", {
     .defaultNow(),
 });
 
+// --- Player Groups ----------------------
+
+export const playerGroups = pgTable("player_groups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  // Nur Namen — keine Commander, die kommen weiterhin manuell in game-form.
+  playerNames: text("player_names").array(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// --- Formats -----------------------------------------------------------
+
+export const formats = pgTable("formats", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  constructionType: constructionTypeEnum("construction_type").notNull(),
+  multiplayer: boolean("multiplayer").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // --- Relations (for the drizzle relational query API) ----------------------
 
-export const decksRelations = relations(decks, ({ many }) => ({
+export const decksRelations = relations(decks, ({ many, one }) => ({
   games: many(games),
+  format: one(formats, {
+    fields: [decks.formatId],
+    references: [formats.id],
+  }),
+}));
+
+export const formatsRelations = relations(formats, ({ many }) => ({
+  decks: many(decks),
 }));
 
 export const gamesRelations = relations(games, ({ one, many }) => ({
@@ -128,21 +174,10 @@ export const gameOpponentsRelations = relations(gameOpponents, ({ one }) => ({
   }),
 }));
 
-export const playerGroups = pgTable("player_groups", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  // Nur Namen — keine Commander, die kommen weiterhin manuell in game-form.
-  playerNames: text("player_names").array(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
 // --- Inferred types --------------------------------------------------------
 
+export type Format = typeof formats.$inferSelect;
+export type NewFormat = typeof formats.$inferInsert;
 export type PlayerGroup = typeof playerGroups.$inferSelect;
 export type NewPlayerGroup = typeof playerGroups.$inferInsert;
 export type Deck = typeof decks.$inferSelect;
@@ -155,3 +190,4 @@ export type NewGameOpponent = typeof gameOpponents.$inferInsert;
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type WinnerType = (typeof winnerTypeEnum.enumValues)[number];
 export type WinType = (typeof winTypeEnum.enumValues)[number];
+export type ConstructionType = (typeof constructionTypeEnum.enumValues)[number];

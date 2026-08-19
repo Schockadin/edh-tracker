@@ -23,7 +23,10 @@ function firstError(error: unknown): string {
     "issues" in error &&
     Array.isArray((error as { issues: { message: string }[] }).issues)
   ) {
-    return (error as { issues: { message: string }[] }).issues[0]?.message ?? "Ungültige Eingabe";
+    return (
+      (error as { issues: { message: string }[] }).issues[0]?.message ??
+      "Ungültige Eingabe"
+    );
   }
   return "Ungültige Eingabe";
 }
@@ -43,6 +46,7 @@ export async function createDeck(input: unknown): Promise<ActionState> {
     name: parsed.data.name,
     commander: parsed.data.commander,
     partnerCommander: parsed.data.partnerCommander,
+    formatId: parsed.data.formatId,
     url: parsed.data.url,
     platform: parsed.data.platform,
     colorIdentity: parsed.data.colorIdentity,
@@ -69,6 +73,7 @@ export async function updateDeck(
       name: parsed.data.name,
       commander: parsed.data.commander,
       partnerCommander: parsed.data.partnerCommander,
+      formatId: parsed.data.formatId,
       url: parsed.data.url,
       platform: parsed.data.platform,
       colorIdentity: parsed.data.colorIdentity,

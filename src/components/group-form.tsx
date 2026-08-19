@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { createGroup, updateGroup } from "@/app/(app)/groups/actions";
+import { createGroup, updateGroup } from "@/app/(app)/settings/groups/actions";
 import type { PlayerGroupView } from "@/lib/types";
 
 export function GroupForm({ group }: { group?: PlayerGroupView }) {

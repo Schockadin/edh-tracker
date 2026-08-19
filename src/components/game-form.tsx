@@ -9,6 +9,7 @@ import {
   WIN_TYPE_LABELS,
   type DeckView,
   type GameView,
+  type FormatView,
   type PlayerGroupView,
 } from "@/lib/types";
 import { WIN_TYPES } from "@/lib/validation";
@@ -39,45 +40,77 @@ export function GameForm({
   decks,
   game,
   groups,
+  formats,
 }: {
   decks: DeckView[];
   game?: GameView;
   groups?: PlayerGroupView[];
+  formats: FormatView[];
 }) {
   const editing = Boolean(game);
-  const [deckId, setDeckId] = useState<string>(
-    game ? String(game.deckId) : decks[0] ? String(decks[0].id) : "",
+
+  const [formatId, setFormatId] = useState<string>(() => {
+    if (game) return String(game.formatId);
+    return formats[0] ? String(formats[0].id) : "";
+  });
+
+  const selectedFormat = useMemo(
+    () => formats.find((f) => String(f.id) === formatId),
+    [formats, formatId],
   );
+  const availableDecks = useMemo(
+    () => decks.filter((d) => String(d.formatId) === formatId),
+    [decks, formatId],
+  );
+
+  const [deckId, setDeckId] = useState<string>(() => {
+    if (game) return String(game.deckId);
+    const first = decks.find((d) => String(d.formatId) === formatId);
+    return first ? String(first.id) : "";
+  });
+
   const [playedAt, setPlayedAt] = useState<string>(
     game ? game.playedAt.slice(0, 10) : nowDate(),
   );
+
   const [bracket, setBracket] = useState<string>(
     game?.bracket != null ? String(game.bracket) : "",
   );
-  const [opponents, setOpponents] = useState<OpponentRow[]>(
-    game && game.opponents.length > 0
-      ? game.opponents.map((o) => ({
-          playerName: o.playerName ?? "",
-          commander: o.commander,
-          partnerCommander: o.partnerCommander ?? "",
-          commanderValid: true,
-          partnerValid: true,
-        }))
-      : [{ ...emptyOpponent }, { ...emptyOpponent }, { ...emptyOpponent }],
-  );
+
+  function defaultOpponents(multiplayer: boolean): OpponentRow[] {
+    const count = multiplayer ? 3 : 1;
+    return Array.from({ length: count }, () => ({ ...emptyOpponent }));
+  }
+
+  const [opponents, setOpponents] = useState<OpponentRow[]>(() => {
+    if (game && game.opponents.length > 0) {
+      return game.opponents.map((o) => ({
+        playerName: o.playerName ?? "",
+        commander: o.commander,
+        partnerCommander: o.partnerCommander ?? "",
+        commanderValid: true,
+        partnerValid: true,
+      }));
+    }
+    return defaultOpponents(selectedFormat?.multiplayer ?? true);
+  });
+
   const [winnerType, setWinnerType] = useState<"me" | "opponent" | "draw">(
     game?.winnerType ?? "me",
   );
+
   const initialWinnerIndex = useMemo(() => {
     if (!game || game.winnerOpponentId == null) return "";
     const idx = game.opponents.findIndex((o) => o.id === game.winnerOpponentId);
     return idx >= 0 ? String(idx) : "";
   }, [game]);
+
   const [winnerOpponentIndex, setWinnerOpponentIndex] =
     useState<string>(initialWinnerIndex);
   const [winTurn, setWinTurn] = useState<string>(
     game?.winTurn != null ? String(game.winTurn) : "",
   );
+
   const [winType, setWinType] = useState<string>(game?.winType ?? "");
   const [notes, setNotes] = useState<string>(game?.notes ?? "");
 
@@ -89,16 +122,29 @@ export function GameForm({
     [decks, deckId],
   );
 
+  function handleFormatChange(newFormatId: string) {
+    setFormatId(newFormatId);
+    const format = formats.find((f) => String(f.id) === newFormatId);
+    const matching = decks.filter((d) => String(d.formatId) === newFormatId);
+    setDeckId(matching[0] ? String(matching[0].id) : "");
+    setOpponents(defaultOpponents(format?.multiplayer ?? true));
+    setWinnerOpponentIndex("");
+  }
+
   function updateOpponent(i: number, patch: Partial<OpponentRow>) {
     setOpponents((prev) =>
       prev.map((o, idx) => (idx === i ? { ...o, ...patch } : o)),
     );
   }
+
   function addOpponent() {
     setOpponents((prev) => [...prev, { ...emptyOpponent }]);
   }
+
   function removeOpponent(i: number) {
-    setOpponents((prev) => prev.filter((_, idx) => idx !== i));
+    setOpponents((prev) =>
+      prev.length <= 1 ? prev : prev.filter((_, idx) => idx !== i),
+    );
     setWinnerOpponentIndex("");
   }
 
@@ -192,6 +238,24 @@ export function GameForm({
         <h2 className="font-semibold">Setup</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
+            <label htmlFor="format" className="label">
+              Format
+            </label>
+            <select
+              id="format"
+              className="select"
+              value={formatId}
+              onChange={(e) => handleFormatChange(e.target.value)}
+              required
+            >
+              {formats.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="deck" className="label">
               Mein Deck
             </label>
@@ -206,12 +270,17 @@ export function GameForm({
               }}
               required
             >
-              {decks.map((d) => (
+              {availableDecks.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
                 </option>
               ))}
             </select>
+            {availableDecks.length === 0 ? (
+              <p className="mt-1 text-xs text-red-500">
+                Keine Decks für dieses Format.
+              </p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="playedAt" className="label">
@@ -253,7 +322,7 @@ export function GameForm({
 
       {/* Opponents */}
       <div className="card space-y-3">
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <h2 className="font-semibold">Gegner</h2>
           <div className="flex items-center gap-2">
             {groups && groups.length > 0 ? (
@@ -279,6 +348,36 @@ export function GameForm({
             <button type="button" className="btn-ghost" onClick={addOpponent}>
               + Gegner
             </button>
+          </div>
+        </div> */}
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Gegner</h2>
+          <div className="flex items-center gap-2">
+            {selectedFormat?.multiplayer && groups && groups.length > 0 ? (
+              <select
+                className="select w-auto"
+                value=""
+                onChange={(e) => {
+                  const group = groups.find(
+                    (g) => String(g.id) === e.target.value,
+                  );
+                  if (group) applyGroup(group);
+                  e.target.value = "";
+                }}
+              >
+                <option value="">Gruppe laden…</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            {selectedFormat?.multiplayer ? (
+              <button type="button" className="btn-ghost" onClick={addOpponent}>
+                + Gegner
+              </button>
+            ) : null}
           </div>
         </div>
         <p className="text-xs text-muted">
@@ -339,14 +438,16 @@ export function GameForm({
                   )
                 }
               />
-              <button
-                type="button"
-                className="text-xs text-red-500 hover:text-red-400"
-                onClick={() => removeOpponent(i)}
-                aria-label="Gegner entfernen"
-              >
-                ✕
-              </button>
+              {selectedFormat?.multiplayer && (
+                <button
+                  type="button"
+                  className="text-xs text-red-500 hover:text-red-400"
+                  onClick={() => removeOpponent(i)}
+                  aria-label="Gegner entfernen"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>
