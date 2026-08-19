@@ -16,6 +16,7 @@ export const WIN_TYPES = [
   "concession",
   "other",
 ] as const;
+export const CONSTRUCTION_TYPES = ["constructed", "limited"] as const;
 
 /** Coerce "" / null / undefined to null, otherwise validate as a bounded int. */
 function nullableInt(min: number, max: number) {
@@ -45,6 +46,7 @@ export const deckInputSchema = z.object({
   name: z.string().trim().min(1, "Name fehlt").max(120),
   commander: z.string().trim().min(1, "Commander fehlt").max(160),
   partnerCommander: optionalText(160),
+  formatId: z.coerce.number().int().positive("Bitte ein Format wählen"),
   url: z.string().trim().url("Ungültige URL").max(500),
   platform: z.enum(PLATFORMS),
   colorIdentity: z.array(z.enum(COLORS)).default([]),
@@ -52,8 +54,6 @@ export const deckInputSchema = z.object({
   partnerImage: optionalUrl(500),
   bracket: nullableInt(1, 5),
 });
-
-export type DeckInput = z.infer<typeof deckInputSchema>;
 
 export const opponentInputSchema = z.object({
   playerName: optionalText(120),
@@ -90,4 +90,18 @@ export const gameInputSchema = z
     },
   );
 
+export const playerGroupInputSchema = z.object({
+  name: z.string().trim().min(1, "Name fehlt").max(120),
+  playerNames: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
+});
+
+export const formatInputSchema = z.object({
+  name: z.string().trim().min(1, "Name fehlt").max(80),
+  constructionType: z.enum(CONSTRUCTION_TYPES),
+  multiplayer: z.boolean().default(false),
+});
+
+export type FormatInput = z.infer<typeof formatInputSchema>;
+export type PlayerGroupInput = z.infer<typeof playerGroupInputSchema>;
 export type GameInput = z.infer<typeof gameInputSchema>;
+export type DeckInput = z.infer<typeof deckInputSchema>;

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { GameForm } from "@/components/game-form";
 import { SectionHeader } from "@/components/ui";
-import { getDecks, getGame } from "@/db/queries";
+import { getDecks, getGame, getFormats } from "@/db/queries";
 
 export const metadata: Metadata = { title: "Spiel bearbeiten" };
 
@@ -16,7 +16,11 @@ export default async function EditGamePage({
   const gameId = Number(id);
   if (!Number.isInteger(gameId)) notFound();
 
-  const [game, decks] = await Promise.all([getGame(gameId), getDecks()]);
+  const [game, formats, decks] = await Promise.all([
+    getGame(gameId),
+    getFormats(),
+    getDecks(),
+  ]);
   if (!game) notFound();
 
   // Auch archivierte Decks anzeigen, falls das Spiel eines referenziert.
@@ -27,7 +31,7 @@ export default async function EditGamePage({
   return (
     <div className="space-y-6">
       <SectionHeader title="Spiel bearbeiten" />
-      <GameForm decks={sortedDecks} game={game} />
+      <GameForm decks={sortedDecks} game={game} formats={formats} />
     </div>
   );
 }

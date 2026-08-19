@@ -13,7 +13,12 @@ import {
   sortColorIdentity,
   type ScryCard,
 } from "@/lib/scryfall";
-import { COLOR_HEX, PLATFORM_LABELS, type DeckView } from "@/lib/types";
+import {
+  COLOR_HEX,
+  PLATFORM_LABELS,
+  type DeckView,
+  type FormatView,
+} from "@/lib/types";
 import { COLORS, PLATFORMS } from "@/lib/validation";
 import { CardInput } from "./card-input";
 
@@ -25,9 +30,18 @@ function detectPlatform(url: string): Platform {
   return "other";
 }
 
-export function DeckForm({ deck }: { deck?: DeckView }) {
+export function DeckForm({
+  deck,
+  formats,
+}: {
+  deck?: DeckView;
+  formats: FormatView[];
+}) {
   const editing = Boolean(deck);
   const [url, setUrl] = useState(deck?.url ?? "");
+  const [formatId, setFormatId] = useState<string>(
+    deck ? String(deck.formatId) : formats[0] ? String(formats[0].id) : "",
+  );
   const [platform, setPlatform] = useState<Platform>(deck?.platform ?? "other");
   const [name, setName] = useState(deck?.name ?? "");
   const [commander, setCommander] = useState(deck?.commander ?? "");
@@ -135,6 +149,7 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
       name,
       commander,
       partnerCommander,
+      formatId: Number(formatId),
       url,
       platform,
       colorIdentity: colorIdentity.filter((c) => COLORS.includes(c as never)),
@@ -218,6 +233,24 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
             </select>
           </div>
           <div>
+            <label htmlFor="format" className="label">
+              Format
+            </label>
+            <select
+              id="format"
+              className="select"
+              value={formatId}
+              onChange={(e) => setFormatId(e.target.value)}
+              required
+            >
+              {formats.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="commander" className="label">
               Commander
             </label>
@@ -251,7 +284,9 @@ export function DeckForm({ deck }: { deck?: DeckView }) {
               onResolved={(card) => {
                 setPartnerCard(card);
                 setPartnerImage(card?.artCrop ?? null);
-                setPartnerValid(Boolean(card) || partnerCommander.trim() === "");
+                setPartnerValid(
+                  Boolean(card) || partnerCommander.trim() === "",
+                );
                 applyDerivedColors([commanderCard, card]);
               }}
             />

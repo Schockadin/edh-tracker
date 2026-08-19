@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { DeckActions } from "@/components/deck-actions";
-import { ColorPips, PlatformBadge } from "@/components/ui";
+import { ColorPips } from "@/components/ui";
 import type { DeckView } from "@/lib/types";
+import { FORMAT_LABELS } from "@/lib/types";
 
 export interface DeckWithStats extends DeckView {
   games: number;
@@ -56,7 +57,8 @@ function DeckCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <PlatformBadge platform={deck.platform} />
+        {/* <PlatformBadge platform={deck.platform} /> */}
+        <span className="badge">{FORMAT_LABELS[deck.formatId]}</span>
         {deck.bracket ? (
           <span className="badge">Bracket {deck.bracket}</span>
         ) : null}
