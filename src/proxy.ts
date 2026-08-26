@@ -35,8 +35,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on all routes except Next internals, static assets and PWA files.
+  // Run on all routes except Next internals, static assets, PWA files and the
+  // JSON API (`/api/*` authenticates itself via a Bearer token, not the cookie).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icons/|sw.js|manifest.webmanifest|offline|robots.txt|.*\\.png$|.*\\.svg$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|icons/|sw.js|manifest.webmanifest|offline|robots.txt|.*\\.png$|.*\\.svg$).*)",
   ],
 };

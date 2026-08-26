@@ -7,6 +7,7 @@ import {
   serial,
   text,
   timestamp,
+  uuid,
 } from "drizzle-orm/pg-core";
 
 // --- Enums -----------------------------------------------------------------
@@ -46,6 +47,8 @@ export const constructionTypeEnum = pgEnum("construction_type", [
 
 export const decks = pgTable("decks", {
   id: serial("id").primaryKey(),
+  // Stable cross-device identity for sync (offline clients generate their own).
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
   name: text("name").notNull(),
   // Only required for Commander(-style) formats; null for e.g. Standard/Modern.
   commander: text("commander"),
@@ -77,6 +80,8 @@ export const decks = pgTable("decks", {
 
 export const games = pgTable("games", {
   id: serial("id").primaryKey(),
+  // Stable cross-device identity for sync.
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
   // My deck used in this game.
   deckId: integer("deck_id")
     .notNull()
@@ -100,12 +105,17 @@ export const games = pgTable("games", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // --- Opponents in a game ---------------------------------------------------
 
 export const gameOpponents = pgTable("game_opponents", {
   id: serial("id").primaryKey(),
+  // Stable cross-device identity for sync.
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
   gameId: integer("game_id")
     .notNull()
     .references(() => games.id, { onDelete: "cascade" }),
@@ -119,12 +129,17 @@ export const gameOpponents = pgTable("game_opponents", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // --- Player Groups ----------------------
 
 export const playerGroups = pgTable("player_groups", {
   id: serial("id").primaryKey(),
+  // Stable cross-device identity for sync.
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
   name: text("name").notNull(),
   // Nur Namen — keine Commander, die kommen weiterhin manuell in game-form.
   playerNames: text("player_names").array(),
@@ -140,6 +155,8 @@ export const playerGroups = pgTable("player_groups", {
 
 export const formats = pgTable("formats", {
   id: serial("id").primaryKey(),
+  // Stable cross-device identity for sync.
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
   name: text("name").notNull(),
   constructionType: constructionTypeEnum("construction_type").notNull(),
   multiplayer: boolean("multiplayer").notNull().default(false),
@@ -159,6 +176,25 @@ export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// --- Sync tombstones -------------------------------------------------------
+
+/**
+ * Records deletions so sync clients can remove rows they mirror. Rows are
+ * inserted automatically by DB triggers (see the sync migration) whenever a
+ * record in a syncable table is deleted — regardless of whether the delete came
+ * from the web app, the API or a manual query.
+ */
+export const syncTombstones = pgTable("sync_tombstones", {
+  id: serial("id").primaryKey(),
+  // Name of the source table, e.g. "decks", "games".
+  tableName: text("table_name").notNull(),
+  // The `uuid` of the deleted row.
+  rowUuid: uuid("row_uuid").notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
@@ -206,6 +242,8 @@ export type Game = typeof games.$inferSelect;
 export type NewGame = typeof games.$inferInsert;
 export type GameOpponent = typeof gameOpponents.$inferSelect;
 export type NewGameOpponent = typeof gameOpponents.$inferInsert;
+export type SyncTombstone = typeof syncTombstones.$inferSelect;
+export type NewSyncTombstone = typeof syncTombstones.$inferInsert;
 
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type WinnerType = (typeof winnerTypeEnum.enumValues)[number];
