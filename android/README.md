@@ -21,6 +21,7 @@ nächsten Sync hochgeladen.
   importieren (Auflösung über die `/api/cards/import`-Route des Servers).
 - **Sammlung**: gesamte Sammlung per Einfügen erfassen; **verbaut** vs.
   **verfügbar** wird automatisch (mengenbewusst) aus den Decklisten abgeleitet.
+  Deck-Karten ohne eigenen Sammlungseintrag erscheinen automatisch als Bestand.
 - **Statistik**: Spiele, Siege, Winrate und Siege pro Deck.
 - **Hintergrund-Sync** alle 6 Stunden via WorkManager, plus „Jetzt
   synchronisieren" in den Einstellungen.

@@ -107,14 +107,23 @@ export function CollectionManager({ cards }: { cards: CollectionCardView[] }) {
                     <span className="badge">{c.freeQty} frei</span>
                   ) : null}
                 </span>
-                <button
-                  type="button"
-                  className="text-muted hover:text-red-500"
-                  title="Entfernen"
-                  onClick={() => mutate(() => deleteCollectionCard(c.id))}
-                >
-                  ✕
-                </button>
+                {c.virtual ? (
+                  <span
+                    className="text-xs text-muted"
+                    title="Aus einer Deckliste – kein eigener Sammlungseintrag"
+                  >
+                    aus Deck
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="text-muted hover:text-red-500"
+                    title="Entfernen"
+                    onClick={() => mutate(() => deleteCollectionCard(c.id))}
+                  >
+                    ✕
+                  </button>
+                )}
               </li>
             ))}
           </ul>

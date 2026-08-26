@@ -191,9 +191,8 @@ export const getDeckCards = unstable_cache(
 
 function serializeCollectionCard(
   card: CollectionCard,
-  usedByName: Map<string, number>,
+  built: number,
 ): CollectionCardView {
-  const built = usedByName.get(card.name.toLowerCase()) ?? 0;
   const usedQty = Math.min(card.quantity, built);
   return {
     id: card.id,
@@ -210,13 +209,36 @@ function serializeCollectionCard(
     rarity: card.rarity,
     usedQty,
     freeQty: card.quantity - usedQty,
+    virtual: false,
+  };
+}
+
+/** A card that lives only in a decklist becomes a virtual, fully-used entry. */
+function serializeVirtualCard(sample: DeckCard, built: number): CollectionCardView {
+  return {
+    id: -1,
+    uuid: sample.uuid,
+    name: sample.name,
+    quantity: built,
+    scryfallId: sample.scryfallId,
+    setCode: sample.setCode,
+    collectorNumber: sample.collectorNumber,
+    manaValue: sample.manaValue,
+    typeLine: sample.typeLine,
+    colorIdentity: sample.colorIdentity ?? [],
+    imageUrl: sample.imageUrl,
+    rarity: sample.rarity,
+    usedQty: built,
+    freeQty: 0,
+    virtual: true,
   };
 }
 
 /**
  * The whole collection, sorted by name. `used`/`free` counts are derived from
  * the decklists (`deck_cards`): a card is used up to the total quantity built
- * into decks. Cached; invalidated via `collection` and `cards`.
+ * into decks. Deck cards without a collection entry of their own are added as
+ * virtual, fully-used stock. Cached; invalidated via `collection` and `cards`.
  */
 export const getCollectionCards = unstable_cache(
   async (): Promise<CollectionCardView[]> => {
@@ -224,17 +246,28 @@ export const getCollectionCards = unstable_cache(
       db.query.collectionCards.findMany({
         orderBy: (c, { asc }) => [asc(c.name)],
       }),
-      db.query.deckCards.findMany({
-        columns: { name: true, quantity: true },
-      }),
+      db.query.deckCards.findMany(),
     ]);
-    // Total quantity of each card built across all decks, keyed by lower name.
-    const usedByName = new Map<string, number>();
+
+    // Aggregate per card name: total built quantity + one row as metadata sample.
+    const built = new Map<string, { qty: number; sample: DeckCard }>();
     for (const b of builtRows) {
       const key = b.name.toLowerCase();
-      usedByName.set(key, (usedByName.get(key) ?? 0) + b.quantity);
+      const acc = built.get(key);
+      if (acc) acc.qty += b.quantity;
+      else built.set(key, { qty: b.quantity, sample: b });
     }
-    return rows.map((r) => serializeCollectionCard(r, usedByName));
+
+    const owned = new Set(rows.map((r) => r.name.toLowerCase()));
+    const result = rows.map((r) =>
+      serializeCollectionCard(r, built.get(r.name.toLowerCase())?.qty ?? 0),
+    );
+    // Add deck-only cards as virtual stock.
+    for (const [key, { qty, sample }] of built) {
+      if (!owned.has(key)) result.push(serializeVirtualCard(sample, qty));
+    }
+    result.sort((a, b) => a.name.localeCompare(b.name));
+    return result;
   },
   ["collection:list"],
   { tags: [CACHE_TAGS.collection, CACHE_TAGS.cards] },

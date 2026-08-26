@@ -86,6 +86,9 @@ export interface CollectionCardView extends CardView {
   // a card counts as used up to the total quantity built into decks.
   usedQty: number;
   freeQty: number;
+  // True when this entry is not a real collection row but was synthesised from a
+  // decklist (a card that is in a deck but has no collection entry of its own).
+  virtual: boolean;
 }
 
 export interface FormatView {

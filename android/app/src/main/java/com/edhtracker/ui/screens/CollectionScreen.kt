@@ -32,7 +32,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edhtracker.ui.AppViewModel
 
 /** A collection card together with its derived used/free split. */
-private data class CardRow(val name: String, val owned: Int, val used: Int, val uuid: String) {
+private data class CardRow(
+    val name: String,
+    val owned: Int,
+    val used: Int,
+    val uuid: String,
+    // Virtual rows come from a decklist and have no real collection entry.
+    val virtual: Boolean,
+) {
     val free: Int get() = owned - used
 }
 
@@ -44,15 +51,21 @@ fun CollectionScreen(vm: AppViewModel) {
     var filter by remember { mutableStateOf("all") }
     var showImport by remember { mutableStateOf(false) }
 
-    // Total quantity of each card built across all decks, keyed by lower name.
-    val usedByName = remember(deckCards) {
+    // Per card name across all decks: total built quantity + a metadata sample.
+    val builtByName = remember(deckCards) {
         deckCards.groupBy { it.name.lowercase() }
-            .mapValues { (_, list) -> list.sumOf { it.quantity } }
     }
-    val rows = cards.map {
-        val built = usedByName[it.name.lowercase()] ?: 0
-        CardRow(it.name, it.quantity, minOf(it.quantity, built), it.uuid)
+    val owned = cards.map { it.name.lowercase() }.toSet()
+    val realRows = cards.map {
+        val built = builtByName[it.name.lowercase()]?.sumOf { c -> c.quantity } ?: 0
+        CardRow(it.name, it.quantity, minOf(it.quantity, built), it.uuid, virtual = false)
     }
+    // Deck cards without a collection entry become virtual, fully-used stock.
+    val virtualRows = builtByName.filterKeys { it !in owned }.map { (_, list) ->
+        val qty = list.sumOf { it.quantity }
+        CardRow(list.first().name, qty, qty, list.first().uuid, virtual = true)
+    }
+    val rows = (realRows + virtualRows).sortedBy { it.name.lowercase() }
     val free = rows.sumOf { it.free }
     val used = rows.sumOf { it.used }
     val visible = rows.filter {
@@ -122,8 +135,16 @@ fun CollectionScreen(vm: AppViewModel) {
                                     modifier = Modifier.padding(start = 8.dp),
                                 )
                             }
-                            IconButton(onClick = { vm.deleteCollectionCard(card.uuid) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Entfernen")
+                            if (card.virtual) {
+                                Text(
+                                    "aus Deck",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                )
+                            } else {
+                                IconButton(onClick = { vm.deleteCollectionCard(card.uuid) }) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Entfernen")
+                                }
                             }
                         }
                     }
