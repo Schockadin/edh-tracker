@@ -12,9 +12,12 @@ import type {
 export interface DeckView {
   id: number;
   name: string;
-  commander: string;
+  commander: string | null;
   partnerCommander: string | null;
   formatId: number;
+  formatName: string;
+  formatHasCommander: boolean;
+  theme: string | null;
   platform: Platform;
   url: string;
   colorIdentity: string[];
@@ -29,16 +32,20 @@ export interface DeckView {
 export interface OpponentView {
   id: number;
   playerName: string | null;
-  commander: string;
+  commander: string | null;
   partnerCommander: string | null;
+  theme: string | null;
 }
 
 export interface GameView {
   id: number;
   deckId: number;
   deckName: string;
-  deckCommander: string;
+  deckCommander: string | null;
+  deckTheme: string | null;
   formatId: number;
+  formatName: string;
+  formatHasCommander: boolean;
   playedAt: string;
   bracket: number | null;
   turnCount: number | null;
@@ -64,6 +71,7 @@ export interface FormatView {
   name: string;
   constructionType: ConstructionType;
   multiplayer: boolean;
+  hasCommander: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,12 +97,6 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   other: "Sonstige",
 };
 
-export const FORMAT_LABELS: Record<number, string> = {
-  1: "Commander",
-  2: "Pauper",
-  3: "Pre-Release",
-};
-
 export const WINNER_TYPE_LABELS: Record<WinnerType, string> = {
   me: "Ich",
   opponent: "Gegner",
@@ -105,6 +107,19 @@ export const CONSTRUCTION_TYPE_LABELS: Record<ConstructionType, string> = {
   constructed: "Constructed",
   limited: "Limited",
 };
+
+/** Best display label for an opponent: commander, else theme, else name. */
+export function opponentLabel(o: OpponentView): string {
+  return o.commander ?? o.theme ?? o.playerName ?? "Gegner";
+}
+
+/** Best display label for a deck's identity: commander, else theme. */
+export function deckIdentity(deck: {
+  commander: string | null;
+  theme: string | null;
+}): string | null {
+  return deck.commander ?? deck.theme ?? null;
+}
 
 export const COLOR_HEX: Record<string, string> = {
   W: "#f8f4e3",

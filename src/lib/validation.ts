@@ -44,9 +44,12 @@ function optionalUrl(max: number) {
 
 export const deckInputSchema = z.object({
   name: z.string().trim().min(1, "Name fehlt").max(120),
-  commander: z.string().trim().min(1, "Commander fehlt").max(160),
+  // Optional at the schema level; the server action enforces that Commander
+  // formats have a commander (based on the selected format).
+  commander: optionalText(160),
   partnerCommander: optionalText(160),
   formatId: z.coerce.number().int().positive("Bitte ein Format wählen"),
+  theme: optionalText(120),
   url: z.string().trim().url("Ungültige URL").max(500),
   platform: z.enum(PLATFORMS),
   colorIdentity: z.array(z.enum(COLORS)).default([]),
@@ -57,8 +60,10 @@ export const deckInputSchema = z.object({
 
 export const opponentInputSchema = z.object({
   playerName: optionalText(120),
-  commander: z.string().trim().min(1, "Gegner-Commander fehlt").max(160),
+  // Optional: non-Commander opponents have no commander, only a theme.
+  commander: optionalText(160),
   partnerCommander: optionalText(160),
+  theme: optionalText(120),
 });
 
 export const gameInputSchema = z
@@ -99,8 +104,14 @@ export const formatInputSchema = z.object({
   name: z.string().trim().min(1, "Name fehlt").max(80),
   constructionType: z.enum(CONSTRUCTION_TYPES),
   multiplayer: z.boolean().default(false),
+  hasCommander: z.boolean().default(false),
 });
 
+export const settingsInputSchema = z.object({
+  defaultFormatId: z.coerce.number().int().positive("Bitte ein Format wählen"),
+});
+
+export type SettingsInput = z.infer<typeof settingsInputSchema>;
 export type FormatInput = z.infer<typeof formatInputSchema>;
 export type PlayerGroupInput = z.infer<typeof playerGroupInputSchema>;
 export type GameInput = z.infer<typeof gameInputSchema>;

@@ -2,14 +2,31 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DecksBrowser, type DeckWithStats } from "@/components/decks-browser";
+import { FormatFilter } from "@/components/format-filter";
 import { SectionHeader } from "@/components/ui";
-import { getDecks, getGames } from "@/db/queries";
+import { getDecks, getDefaultFormatId, getFormats, getGames } from "@/db/queries";
+import { resolveFormatFilter } from "@/lib/format-filter";
 import { computeStats } from "@/lib/stats";
 
 export const metadata: Metadata = { title: "Decks" };
 
-export default async function DecksPage() {
-  const [decks, games] = await Promise.all([getDecks(), getGames()]);
+export default async function DecksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ format?: string }>;
+}) {
+  const [{ format: formatParam }, decks, games, formats, defaultFormatId] =
+    await Promise.all([
+      searchParams,
+      getDecks(),
+      getGames(),
+      getFormats(),
+      getDefaultFormatId(),
+    ]);
+  const { value: filterValue, formatId } = resolveFormatFilter(
+    formatParam,
+    defaultFormatId,
+  );
   const { deckStats } = computeStats(games, decks);
   const statById = new Map(deckStats.map((s) => [s.deckId, s]));
 
@@ -20,7 +37,10 @@ export default async function DecksPage() {
     if (!prev || g.playedAt > prev) lastPlayedById.set(g.deckId, g.playedAt);
   }
 
-  const enriched: DeckWithStats[] = decks.map((deck) => {
+  const visibleDecks =
+    formatId == null ? decks : decks.filter((d) => d.formatId === formatId);
+
+  const enriched: DeckWithStats[] = visibleDecks.map((deck) => {
     const s = statById.get(deck.id);
     return {
       ...deck,
@@ -48,7 +68,18 @@ export default async function DecksPage() {
           oder Archidekt-Link an.
         </div>
       ) : (
-        <DecksBrowser decks={enriched} />
+        <>
+          <div className="card flex flex-wrap items-end gap-4">
+            <FormatFilter formats={formats} value={filterValue} />
+          </div>
+          {enriched.length === 0 ? (
+            <div className="card text-center text-muted">
+              Keine Decks für dieses Format.
+            </div>
+          ) : (
+            <DecksBrowser decks={enriched} />
+          )}
+        </>
       )}
     </div>
   );

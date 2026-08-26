@@ -87,7 +87,7 @@ export function computeStats(games: GameView[], decks: DeckView[]): Stats {
     deckMap.set(d.id, {
       deckId: d.id,
       name: d.name,
-      commander: d.commander,
+      commander: d.commander ?? d.theme ?? "",
       games: 0,
       wins: 0,
       winRate: 0,
@@ -99,7 +99,7 @@ export function computeStats(games: GameView[], decks: DeckView[]): Stats {
       stat = {
         deckId: g.deckId,
         name: g.deckName,
-        commander: g.deckCommander,
+        commander: g.deckCommander ?? g.deckTheme ?? "",
         games: 0,
         wins: 0,
         winRate: 0,

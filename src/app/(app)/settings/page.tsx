@@ -1,23 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { DefaultFormatForm } from "@/components/default-format-form";
 import { FormatActions } from "@/components/format-actions";
 import { GroupActions } from "@/components/group-actions";
 import { SectionHeader } from "@/components/ui";
-import { getFormats, getPlayerGroups } from "@/db/queries";
+import { getDefaultFormatId, getFormats, getPlayerGroups } from "@/db/queries";
 import { CONSTRUCTION_TYPE_LABELS } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Einstellungen" };
 
 export default async function SettingsPage() {
-  const [formats, groups] = await Promise.all([
+  const [formats, groups, defaultFormatId] = await Promise.all([
     getFormats(),
     getPlayerGroups(),
+    getDefaultFormatId(),
   ]);
 
   return (
     <div className="space-y-8">
       <SectionHeader title="Einstellungen" />
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Anzeige</h2>
+        <DefaultFormatForm formats={formats} defaultFormatId={defaultFormatId} />
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -42,6 +49,9 @@ export default async function SettingsPage() {
                   <span className="badge">
                     {f.multiplayer ? "Multiplayer" : "1 vs. 1"}
                   </span>
+                  {f.hasCommander ? (
+                    <span className="badge">Commander</span>
+                  ) : null}
                 </div>
                 <div className="mt-auto flex items-center justify-between border-t divider-soft pt-3">
                   <Link

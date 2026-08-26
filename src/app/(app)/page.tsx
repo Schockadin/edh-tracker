@@ -8,7 +8,9 @@ import {
   WinRateDonut,
   WinTypeChart,
 } from "@/components/charts";
-import { getDecks, getGames } from "@/db/queries";
+import { FormatFilter } from "@/components/format-filter";
+import { getDecks, getDefaultFormatId, getFormats, getGames } from "@/db/queries";
+import { resolveFormatFilter } from "@/lib/format-filter";
 import { computeStats } from "@/lib/stats";
 
 function StatTile({
@@ -51,12 +53,38 @@ function ChartCard({
   );
 }
 
-export default async function DashboardPage() {
-  const [games, decks] = await Promise.all([getGames(), getDecks()]);
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ format?: string }>;
+}) {
+  const [{ format: formatParam }, allGames, allDecks, formats, defaultFormatId] =
+    await Promise.all([
+      searchParams,
+      getGames(),
+      getDecks(),
+      getFormats(),
+      getDefaultFormatId(),
+    ]);
+
+  const { value: filterValue, formatId } = resolveFormatFilter(
+    formatParam,
+    defaultFormatId,
+  );
+
+  const games =
+    formatId == null
+      ? allGames
+      : allGames.filter((g) => g.formatId === formatId);
+  const decks =
+    formatId == null
+      ? allDecks
+      : allDecks.filter((d) => d.formatId === formatId);
+
   const stats = computeStats(games, decks);
   const { overview } = stats;
 
-  if (decks.length === 0) {
+  if (allDecks.length === 0) {
     return (
       <div className="card mx-auto max-w-lg text-center">
         <div className="mb-2 text-4xl">🃏</div>
@@ -80,6 +108,13 @@ export default async function DashboardPage() {
         <Link href="/games/new" className="btn-primary">
           + Spiel erfassen
         </Link>
+      </div>
+
+      <div className="card flex flex-wrap items-end gap-4">
+        <FormatFilter formats={formats} value={filterValue} />
+        <p className="text-xs text-muted">
+          {games.length} Spiele · {decks.length} Decks in dieser Auswahl
+        </p>
       </div>
 
       {/* KPI tiles */}

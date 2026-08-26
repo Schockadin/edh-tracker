@@ -60,6 +60,7 @@ export async function createGame(input: unknown): Promise<ActionState> {
             playerName: o.playerName,
             commander: o.commander,
             partnerCommander: o.partnerCommander,
+            theme: o.theme,
           })),
         )
         .returning({ id: gameOpponents.id });
@@ -131,6 +132,7 @@ export async function updateGame(
             playerName: o.playerName,
             commander: o.commander,
             partnerCommander: o.partnerCommander,
+            theme: o.theme,
           })),
         )
         .returning({ id: gameOpponents.id });
