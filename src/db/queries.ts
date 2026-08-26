@@ -190,8 +190,11 @@ export const getDeckCards = unstable_cache(
 );
 
 function serializeCollectionCard(
-  card: CollectionCard & { deck?: { name: string } | null },
+  card: CollectionCard,
+  usedByName: Map<string, number>,
 ): CollectionCardView {
+  const built = usedByName.get(card.name.toLowerCase()) ?? 0;
+  const usedQty = Math.min(card.quantity, built);
   return {
     id: card.id,
     uuid: card.uuid,
@@ -205,23 +208,36 @@ function serializeCollectionCard(
     colorIdentity: card.colorIdentity ?? [],
     imageUrl: card.imageUrl,
     rarity: card.rarity,
-    zone: card.zone,
-    deckId: card.deckId,
-    deckName: card.deck?.name ?? null,
+    usedQty,
+    freeQty: card.quantity - usedQty,
   };
 }
 
-/** The whole collection, sorted by name. Cached; invalidated via `collection`. */
+/**
+ * The whole collection, sorted by name. `used`/`free` counts are derived from
+ * the decklists (`deck_cards`): a card is used up to the total quantity built
+ * into decks. Cached; invalidated via `collection` and `cards`.
+ */
 export const getCollectionCards = unstable_cache(
   async (): Promise<CollectionCardView[]> => {
-    const rows = await db.query.collectionCards.findMany({
-      with: { deck: true },
-      orderBy: (c, { asc }) => [asc(c.name)],
-    });
-    return rows.map(serializeCollectionCard);
+    const [rows, builtRows] = await Promise.all([
+      db.query.collectionCards.findMany({
+        orderBy: (c, { asc }) => [asc(c.name)],
+      }),
+      db.query.deckCards.findMany({
+        columns: { name: true, quantity: true },
+      }),
+    ]);
+    // Total quantity of each card built across all decks, keyed by lower name.
+    const usedByName = new Map<string, number>();
+    for (const b of builtRows) {
+      const key = b.name.toLowerCase();
+      usedByName.set(key, (usedByName.get(key) ?? 0) + b.quantity);
+    }
+    return rows.map((r) => serializeCollectionCard(r, usedByName));
   },
   ["collection:list"],
-  { tags: [CACHE_TAGS.collection, CACHE_TAGS.decks] },
+  { tags: [CACHE_TAGS.collection, CACHE_TAGS.cards] },
 );
 
 function serializePlayerGroup(group: PlayerGroup): PlayerGroupView {

@@ -50,6 +50,8 @@ class SyncRepository(
     val opponents = opponentDao.observeAll()
     val groups = groupDao.observeAll()
     val collection = collectionDao.observeAll()
+    /** All deck cards across every deck — used to derive collection used/free. */
+    val allDeckCards = deckCardDao.observeAll()
 
     fun deckCards(deckUuid: String): Flow<List<DeckCardEntity>> =
         deckCardDao.observeForDeck(deckUuid)
@@ -187,15 +189,17 @@ class SyncRepository(
             ImportResult(resolved.size, response.unresolved)
         }.onFailure { Log.w(TAG, "deck import failed", it) }
 
-    /** Add pasted/uploaded cards to the collection with the given zone. */
-    suspend fun importCollection(content: String, zone: String): Result<ImportResult> =
+    /**
+     * Add pasted/uploaded cards to the collection. Whether a card is used or free
+     * is derived from the decklists, not stored here.
+     */
+    suspend fun importCollection(content: String): Result<ImportResult> =
         runCatching {
             val response = resolve(content)
             val resolved = response.resolved
             val now = now()
             db.withTransaction {
-                val existing = collectionDao.forZone(zone)
-                    .associateBy { it.name.lowercase() }
+                val existing = collectionDao.allOnce().associateBy { it.name.lowercase() }
                 for (c in resolved) {
                     val found = existing[c.name.lowercase()]
                     if (found != null) {
@@ -207,22 +211,12 @@ class SyncRepository(
                             ),
                         )
                     } else {
-                        collectionDao.upsertOne(c.toCollectionCard(zone, now))
+                        collectionDao.upsertOne(c.toCollectionCard(now))
                     }
                 }
             }
             ImportResult(resolved.size, response.unresolved)
         }.onFailure { Log.w(TAG, "collection import failed", it) }
-
-    suspend fun setCollectionZone(card: CollectionCardEntity, zone: String) {
-        val updated = card.copy(
-            zone = zone,
-            deckUuid = if (zone == "free") null else card.deckUuid,
-            updatedAt = now(),
-            dirty = true,
-        )
-        db.withTransaction { collectionDao.upsertOne(updated) }
-    }
 
     suspend fun deleteCollectionCard(uuid: String) {
         db.withTransaction {
@@ -424,11 +418,12 @@ private fun ResolvedCardDto.toDeckCard(deckUuid: String, now: String) = DeckCard
     dirty = true,
 )
 
-private fun ResolvedCardDto.toCollectionCard(zone: String, now: String) = CollectionCardEntity(
+private fun ResolvedCardDto.toCollectionCard(now: String) = CollectionCardEntity(
     uuid = UUID.randomUUID().toString(),
     name = name,
     quantity = quantity,
-    zone = zone,
+    // Zone is derived from decklists at display time; stored value is a default.
+    zone = "free",
     deckUuid = null,
     scryfallId = scryfallId,
     setCode = setCode,

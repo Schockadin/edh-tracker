@@ -9,7 +9,6 @@ import { collectionCards } from "@/db/schema";
 import { parseCardImport } from "@/lib/decklist";
 import { resolveCards } from "@/lib/scryfall-server";
 import { requireSession } from "@/lib/session";
-import type { CardZone } from "@/db/schema";
 
 export interface ImportState {
   ok: boolean;
@@ -18,19 +17,16 @@ export interface ImportState {
   error?: string;
 }
 
-const ZONES: CardZone[] = ["used", "free"];
-
 /**
- * Add pasted/uploaded cards to the collection with the given zone. Cards with a
- * name already present in that zone have their quantity increased; new names are
- * inserted. Names Scryfall cannot resolve are reported back.
+ * Add pasted/uploaded cards to the collection. Cards with a name already present
+ * have their owned quantity increased; new names are inserted. Whether a card is
+ * "used" or "free" is derived from the decklists, not stored here. Names Scryfall
+ * cannot resolve are reported back.
  */
 export async function importCollection(
   content: string,
-  zone: CardZone,
 ): Promise<ImportState> {
   await requireSession();
-  if (!ZONES.includes(zone)) return { ok: false, error: "Ungültige Zone." };
   if (!content.trim()) return { ok: false, error: "Keine Karten gefunden." };
 
   const lines = parseCardImport(content);
@@ -39,10 +35,7 @@ export async function importCollection(
   const { resolved, unresolved } = await resolveCards(lines);
 
   await db.transaction(async (tx) => {
-    const existing = await tx
-      .select()
-      .from(collectionCards)
-      .where(eq(collectionCards.zone, zone));
+    const existing = await tx.select().from(collectionCards);
     const byName = new Map(existing.map((c) => [c.name.toLowerCase(), c]));
 
     for (const c of resolved) {
@@ -56,7 +49,6 @@ export async function importCollection(
         await tx.insert(collectionCards).values({
           name: c.name,
           quantity: c.quantity,
-          zone,
           scryfallId: c.scryfallId,
           setCode: c.setCode,
           collectorNumber: c.collectorNumber,
@@ -72,20 +64,6 @@ export async function importCollection(
 
   updateTag(CACHE_TAGS.collection);
   return { ok: true, added: resolved.length, unresolved };
-}
-
-export async function setCollectionCardZone(
-  id: number,
-  zone: CardZone,
-): Promise<void> {
-  await requireSession();
-  if (!ZONES.includes(zone)) return;
-  await db
-    .update(collectionCards)
-    // Clearing the deck link when a card becomes free keeps the data honest.
-    .set({ zone, deckId: zone === "free" ? null : undefined })
-    .where(eq(collectionCards.id, id));
-  updateTag(CACHE_TAGS.collection);
 }
 
 export async function setCollectionCardQuantity(
@@ -111,12 +89,8 @@ export async function deleteCollectionCard(id: number): Promise<void> {
   updateTag(CACHE_TAGS.collection);
 }
 
-export async function clearCollection(zone?: CardZone): Promise<void> {
+export async function clearCollection(): Promise<void> {
   await requireSession();
-  if (zone && ZONES.includes(zone)) {
-    await db.delete(collectionCards).where(eq(collectionCards.zone, zone));
-  } else {
-    await db.delete(collectionCards);
-  }
+  await db.delete(collectionCards);
   updateTag(CACHE_TAGS.collection);
 }

@@ -113,6 +113,9 @@ interface DeckCardDao {
     @Query("SELECT * FROM deck_cards WHERE deckUuid = :deckUuid ORDER BY name")
     fun observeForDeck(deckUuid: String): Flow<List<DeckCardEntity>>
 
+    @Query("SELECT * FROM deck_cards")
+    fun observeAll(): Flow<List<DeckCardEntity>>
+
     @Query("SELECT * FROM deck_cards WHERE dirty = 1")
     suspend fun dirty(): List<DeckCardEntity>
 
@@ -140,8 +143,8 @@ interface CollectionCardDao {
     @Query("SELECT * FROM collection_cards WHERE dirty = 1")
     suspend fun dirty(): List<CollectionCardEntity>
 
-    @Query("SELECT * FROM collection_cards WHERE zone = :zone")
-    suspend fun forZone(zone: String): List<CollectionCardEntity>
+    @Query("SELECT * FROM collection_cards")
+    suspend fun allOnce(): List<CollectionCardEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(rows: List<CollectionCardEntity>)

@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -32,19 +31,33 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edhtracker.ui.AppViewModel
 
-private val ZONE_LABELS = mapOf("free" to "Verfügbar", "used" to "Verbaut")
+/** A collection card together with its derived used/free split. */
+private data class CardRow(val name: String, val owned: Int, val used: Int, val uuid: String) {
+    val free: Int get() = owned - used
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CollectionScreen(vm: AppViewModel) {
     val cards by vm.collection.collectAsStateWithLifecycle()
+    val deckCards by vm.allDeckCards.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf("all") }
-    var importZone by remember { mutableStateOf("free") }
     var showImport by remember { mutableStateOf(false) }
 
-    val free = cards.filter { it.zone == "free" }.sumOf { it.quantity }
-    val used = cards.filter { it.zone == "used" }.sumOf { it.quantity }
-    val visible = cards.filter { filter == "all" || it.zone == filter }
+    // Total quantity of each card built across all decks, keyed by lower name.
+    val usedByName = remember(deckCards) {
+        deckCards.groupBy { it.name.lowercase() }
+            .mapValues { (_, list) -> list.sumOf { it.quantity } }
+    }
+    val rows = cards.map {
+        val built = usedByName[it.name.lowercase()] ?: 0
+        CardRow(it.name, it.quantity, minOf(it.quantity, built), it.uuid)
+    }
+    val free = rows.sumOf { it.free }
+    val used = rows.sumOf { it.used }
+    val visible = rows.filter {
+        filter == "all" || (filter == "used" && it.used > 0) || (filter == "free" && it.free > 0)
+    }
 
     Scaffold(
         topBar = {
@@ -68,7 +81,8 @@ fun CollectionScreen(vm: AppViewModel) {
 
             if (visible.isEmpty()) {
                 Text(
-                    "Keine Karten. Importiere deine Sammlung als Text oder CSV.",
+                    "Keine Karten. Importiere deine Sammlung als Text oder CSV. " +
+                        "Verbaut/verfügbar wird automatisch aus den Decklisten abgeleitet.",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(16.dp),
                 )
@@ -84,7 +98,7 @@ fun CollectionScreen(vm: AppViewModel) {
                     items(visible, key = { it.uuid }) { card ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                "${card.quantity}×",
+                                "${card.owned}×",
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.padding(end = 8.dp),
                             )
@@ -93,15 +107,21 @@ fun CollectionScreen(vm: AppViewModel) {
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier.weight(1f),
                             )
-                            AssistChip(
-                                onClick = {
-                                    vm.setCollectionZone(
-                                        card,
-                                        if (card.zone == "free") "used" else "free",
-                                    )
-                                },
-                                label = { Text(ZONE_LABELS[card.zone] ?: card.zone) },
-                            )
+                            if (card.used > 0) {
+                                Text(
+                                    "${card.used} verbaut",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
+                            if (card.free > 0) {
+                                Text(
+                                    "${card.free} frei",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
                             IconButton(onClick = { vm.deleteCollectionCard(card.uuid) }) {
                                 Icon(Icons.Filled.Delete, contentDescription = "Entfernen")
                             }
@@ -113,42 +133,10 @@ fun CollectionScreen(vm: AppViewModel) {
     }
 
     if (showImport) {
-        // Zone toggle + paste field.
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showImport = false },
-            title = { Text("In Sammlung importieren") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(importZone == "free", { importZone = "free" }, { Text("Verfügbar") })
-                        FilterChip(importZone == "used", { importZone = "used" }, { Text("Verbaut") })
-                    }
-                    ImportTextField(
-                        onReady = { showImport = false; vm.importCollection(it, importZone) },
-                    )
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showImport = false }) { Text("Abbrechen") }
-            },
+        PasteImportDialog(
+            title = "In Sammlung importieren",
+            onDismiss = { showImport = false },
+            onSubmit = { vm.importCollection(it) },
         )
-    }
-}
-
-@Composable
-private fun ImportTextField(onReady: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        androidx.compose.material3.OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            label = { Text("Karten (Text oder CSV)") },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        TextButton(
-            onClick = { onReady(text) },
-            enabled = text.isNotBlank(),
-        ) { Text("Importieren") }
     }
 }

@@ -1,5 +1,4 @@
 import type {
-  CardZone,
   ConstructionType,
   Platform,
   WinnerType,
@@ -83,15 +82,11 @@ export interface CardView {
 }
 
 export interface CollectionCardView extends CardView {
-  zone: CardZone;
-  deckId: number | null;
-  deckName: string | null;
+  // `quantity` is how many are owned; used/free are derived from the decklists:
+  // a card counts as used up to the total quantity built into decks.
+  usedQty: number;
+  freeQty: number;
 }
-
-export const CARD_ZONE_LABELS: Record<CardZone, string> = {
-  used: "Verbaut",
-  free: "Verfügbar",
-};
 
 export interface FormatView {
   id: number;

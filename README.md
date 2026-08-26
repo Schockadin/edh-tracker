@@ -18,7 +18,9 @@ Passwort und ein signiertes Session-Cookie.
   (Plaintext) oder **Upload** (.txt / .csv). Namen werden serverseitig über
   Scryfalls `/cards/collection` aufgelöst (Set, Typ, Farben, Bild, Mana-Wert).
 - **Sammlung**: die gesamte Kartensammlung erfassen (gleiche Import-Optionen wie
-  bei Decks); Karten sind **verbaut** (in einem Deck) oder **verfügbar**.
+  bei Decks). Ob eine Karte **verbaut** (in einem Deck) oder **verfügbar** ist,
+  wird automatisch aus den Decklisten abgeleitet — mengenbewusst: von 4 Kopien
+  gelten so viele als verbaut, wie in Decks stecken, der Rest als verfügbar.
 - **Scryfall-Anbindung** für alle Kartenfelder (Commander, Partner, Gegner):
   Autocomplete beim Tippen und Validierung, sodass nur echte Karten gespeichert
   werden. Farbidentität und Commander-Bild werden automatisch von Scryfall

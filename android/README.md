@@ -19,8 +19,8 @@ nächsten Sync hochgeladen.
   Scryfall-Anbindung bleibt der WebApp vorbehalten).
 - **Decklisten**: Deck antippen → Kartenliste ansehen und per Einfügen
   importieren (Auflösung über die `/api/cards/import`-Route des Servers).
-- **Sammlung**: gesamte Sammlung per Einfügen erfassen; Karten als **verbaut**
-  oder **verfügbar** markieren.
+- **Sammlung**: gesamte Sammlung per Einfügen erfassen; **verbaut** vs.
+  **verfügbar** wird automatisch (mengenbewusst) aus den Decklisten abgeleitet.
 - **Statistik**: Spiele, Siege, Winrate und Siege pro Deck.
 - **Hintergrund-Sync** alle 6 Stunden via WorkManager, plus „Jetzt
   synchronisieren" in den Einstellungen.

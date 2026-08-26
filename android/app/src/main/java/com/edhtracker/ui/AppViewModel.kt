@@ -42,6 +42,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.opponents.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val collection: StateFlow<List<CollectionCardEntity>> =
         repo.collection.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val allDeckCards: StateFlow<List<DeckCardEntity>> =
+        repo.allDeckCards.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun deckCards(deckUuid: String): Flow<List<DeckCardEntity>> = repo.deckCards(deckUuid)
 
@@ -136,10 +138,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun importCollection(content: String, zone: String) {
+    fun importCollection(content: String) {
         viewModelScope.launch {
             _busy.value = true
-            val result = repo.importCollection(content, zone)
+            val result = repo.importCollection(content)
             _message.value = result.fold(
                 onSuccess = { importSummary(it) },
                 onFailure = { "Import fehlgeschlagen (Server erreichbar?)." },
@@ -152,10 +154,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val base = "${r.added} Karten importiert."
         return if (r.unresolved.isEmpty()) base
         else "$base ${r.unresolved.size} nicht gefunden."
-    }
-
-    fun setCollectionZone(card: CollectionCardEntity, zone: String) {
-        viewModelScope.launch { repo.setCollectionZone(card, zone) }
     }
 
     fun deleteCollectionCard(uuid: String) {

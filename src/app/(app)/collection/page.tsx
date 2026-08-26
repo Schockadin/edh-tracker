@@ -14,8 +14,9 @@ export default async function CollectionPage() {
       <SectionHeader title="Sammlung" />
       <p className="text-sm text-muted">
         Erfasse deine gesamte Sammlung per Einfügen oder Datei-Upload (.txt /
-        .csv). Karten sind entweder <strong>verbaut</strong> (in einem Deck) oder{" "}
-        <strong>verfügbar</strong>.
+        .csv). Ob eine Karte <strong>verbaut</strong> oder{" "}
+        <strong>verfügbar</strong> ist, wird automatisch aus deinen Decklisten
+        abgeleitet.
       </p>
       <CollectionManager cards={cards} />
     </div>
