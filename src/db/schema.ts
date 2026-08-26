@@ -47,11 +47,14 @@ export const constructionTypeEnum = pgEnum("construction_type", [
 export const decks = pgTable("decks", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  commander: text("commander").notNull(),
+  // Only required for Commander(-style) formats; null for e.g. Standard/Modern.
+  commander: text("commander"),
   partnerCommander: text("partner_commander"),
   formatId: integer("format_id")
     .notNull()
     .references(() => formats.id),
+  // Optional free-text deck theme/archetype, available for every format.
+  theme: text("theme"),
   platform: platformEnum("platform").notNull().default("other"),
   url: text("url").notNull(),
   // Color identity as WUBRG letters, e.g. ["W","U","B"].
@@ -108,8 +111,11 @@ export const gameOpponents = pgTable("game_opponents", {
     .references(() => games.id, { onDelete: "cascade" }),
   // Free-text player name (optional).
   playerName: text("player_name"),
-  commander: text("commander").notNull(),
+  // Opponent commander — only for Commander(-style) games; null otherwise.
+  commander: text("commander"),
   partnerCommander: text("partner_commander"),
+  // Optional deck theme for non-Commander opponents (no commander there).
+  theme: text("theme"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -137,9 +143,21 @@ export const formats = pgTable("formats", {
   name: text("name").notNull(),
   constructionType: constructionTypeEnum("construction_type").notNull(),
   multiplayer: boolean("multiplayer").notNull().default(false),
+  // Whether decks/opponents in this format have a Commander (EDH-style).
+  hasCommander: boolean("has_commander").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// --- App settings (single-user key/value store) ----------------------------
+
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -178,6 +196,8 @@ export const gameOpponentsRelations = relations(gameOpponents, ({ one }) => ({
 
 export type Format = typeof formats.$inferSelect;
 export type NewFormat = typeof formats.$inferInsert;
+export type AppSetting = typeof appSettings.$inferSelect;
+export type NewAppSetting = typeof appSettings.$inferInsert;
 export type PlayerGroup = typeof playerGroups.$inferSelect;
 export type NewPlayerGroup = typeof playerGroups.$inferInsert;
 export type Deck = typeof decks.$inferSelect;

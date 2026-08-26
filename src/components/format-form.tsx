@@ -17,13 +17,16 @@ export function FormatForm({ format }: { format?: FormatView }) {
     format?.constructionType ?? "constructed",
   );
   const [multiplayer, setMultiplayer] = useState(format?.multiplayer ?? false);
+  const [hasCommander, setHasCommander] = useState(
+    format?.hasCommander ?? false,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const input = { name, constructionType, multiplayer };
+    const input = { name, constructionType, multiplayer, hasCommander };
     startTransition(async () => {
       const result = editing
         ? await updateFormat(format!.id, input)
@@ -78,6 +81,18 @@ export function FormatForm({ format }: { format?: FormatView }) {
           />
           Multiplayer
         </label>
+
+        <label className="flex cursor-pointer items-center gap-2 font-bold">
+          <input
+            type="checkbox"
+            checked={hasCommander}
+            onChange={(e) => setHasCommander(e.target.checked)}
+          />
+          Hat Commander
+        </label>
+        <p className="text-xs text-muted">
+          Nur Commander-Formate haben einen Commander und ein Deck-Bild.
+        </p>
       </div>
 
       {error ? <p className="text-sm text-red-500">{error}</p> : null}

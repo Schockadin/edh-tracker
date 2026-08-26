@@ -9,7 +9,7 @@ import { CACHE_TAGS } from "@/db/queries";
 import { decks } from "@/db/schema";
 import { importDeckFromUrl, type DeckImportResult } from "@/lib/deck-import";
 import { requireSession } from "@/lib/session";
-import { deckInputSchema } from "@/lib/validation";
+import { deckInputSchema, type DeckInput } from "@/lib/validation";
 
 export interface ActionState {
   ok: boolean;
@@ -37,22 +37,60 @@ export async function fetchDeckMeta(url: string): Promise<DeckImportResult> {
   return importDeckFromUrl(url);
 }
 
+/**
+ * Apply the format's rules to the deck payload: Commander formats require a
+ * commander; non-Commander formats never carry commander/partner names or
+ * artwork (only Commander decks have an image).
+ */
+async function normalizeDeckForFormat(
+  data: DeckInput,
+): Promise<{ ok: true; values: DeckInput } | { ok: false; error: string }> {
+  const format = await db.query.formats.findFirst({
+    where: (f, { eq }) => eq(f.id, data.formatId),
+  });
+  if (!format) return { ok: false, error: "Format nicht gefunden." };
+
+  if (format.hasCommander) {
+    if (!data.commander) {
+      return { ok: false, error: "Commander fehlt" };
+    }
+    return { ok: true, values: data };
+  }
+
+  // Non-Commander deck: strip commander-only fields.
+  return {
+    ok: true,
+    values: {
+      ...data,
+      commander: null,
+      partnerCommander: null,
+      commanderImage: null,
+      partnerImage: null,
+    },
+  };
+}
+
 export async function createDeck(input: unknown): Promise<ActionState> {
   await requireSession();
   const parsed = deckInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
 
+  const normalized = await normalizeDeckForFormat(parsed.data);
+  if (!normalized.ok) return { ok: false, error: normalized.error };
+  const data = normalized.values;
+
   await db.insert(decks).values({
-    name: parsed.data.name,
-    commander: parsed.data.commander,
-    partnerCommander: parsed.data.partnerCommander,
-    formatId: parsed.data.formatId,
-    url: parsed.data.url,
-    platform: parsed.data.platform,
-    colorIdentity: parsed.data.colorIdentity,
-    commanderImage: parsed.data.commanderImage,
-    partnerImage: parsed.data.partnerImage,
-    bracket: parsed.data.bracket,
+    name: data.name,
+    commander: data.commander,
+    partnerCommander: data.partnerCommander,
+    formatId: data.formatId,
+    theme: data.theme,
+    url: data.url,
+    platform: data.platform,
+    colorIdentity: data.colorIdentity,
+    commanderImage: data.commanderImage,
+    partnerImage: data.partnerImage,
+    bracket: data.bracket,
   });
 
   updateTag(CACHE_TAGS.decks);
@@ -67,19 +105,24 @@ export async function updateDeck(
   const parsed = deckInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
 
+  const normalized = await normalizeDeckForFormat(parsed.data);
+  if (!normalized.ok) return { ok: false, error: normalized.error };
+  const data = normalized.values;
+
   await db
     .update(decks)
     .set({
-      name: parsed.data.name,
-      commander: parsed.data.commander,
-      partnerCommander: parsed.data.partnerCommander,
-      formatId: parsed.data.formatId,
-      url: parsed.data.url,
-      platform: parsed.data.platform,
-      colorIdentity: parsed.data.colorIdentity,
-      commanderImage: parsed.data.commanderImage,
-      partnerImage: parsed.data.partnerImage,
-      bracket: parsed.data.bracket,
+      name: data.name,
+      commander: data.commander,
+      partnerCommander: data.partnerCommander,
+      formatId: data.formatId,
+      theme: data.theme,
+      url: data.url,
+      platform: data.platform,
+      colorIdentity: data.colorIdentity,
+      commanderImage: data.commanderImage,
+      partnerImage: data.partnerImage,
+      bracket: data.bracket,
       updatedAt: new Date(),
     })
     .where(eq(decks.id, id));

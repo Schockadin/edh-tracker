@@ -6,7 +6,6 @@ import Link from "next/link";
 import { DeckActions } from "@/components/deck-actions";
 import { ColorPips } from "@/components/ui";
 import type { DeckView } from "@/lib/types";
-import { FORMAT_LABELS } from "@/lib/types";
 
 export interface DeckWithStats extends DeckView {
   games: number;
@@ -26,9 +25,15 @@ function DeckCard({
   showImages: boolean;
 }) {
   const winRate = Math.round(deck.winRate * 100);
-  const images = [deck.commanderImage, deck.partnerImage].filter(
-    (u): u is string => Boolean(u),
-  );
+  // Only Commander decks have artwork.
+  const images = deck.formatHasCommander
+    ? [deck.commanderImage, deck.partnerImage].filter(
+        (u): u is string => Boolean(u),
+      )
+    : [];
+  const subtitle = deck.commander
+    ? `${deck.commander}${deck.partnerCommander ? ` + ${deck.partnerCommander}` : ""}`
+    : deck.theme;
   return (
     <div className="card flex flex-col gap-3">
       {showImages && images.length > 0 ? (
@@ -38,7 +43,7 @@ function DeckCard({
             <img
               key={src}
               src={src}
-              alt={deck.commander}
+              alt={deck.commander ?? deck.name}
               className="h-full w-full object-cover"
               loading="lazy"
             />
@@ -48,17 +53,19 @@ function DeckCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold">{deck.name}</h3>
-          <p className="text-sm text-muted">
-            {deck.commander}
-            {deck.partnerCommander ? ` + ${deck.partnerCommander}` : ""}
-          </p>
+          {subtitle ? (
+            <p className="text-sm text-muted">{subtitle}</p>
+          ) : null}
         </div>
         <ColorPips colors={deck.colorIdentity} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {/* <PlatformBadge platform={deck.platform} /> */}
-        <span className="badge">{FORMAT_LABELS[deck.formatId]}</span>
+        <span className="badge">{deck.formatName}</span>
+        {deck.commander && deck.theme ? (
+          <span className="badge">{deck.theme}</span>
+        ) : null}
         {deck.bracket ? (
           <span className="badge">Bracket {deck.bracket}</span>
         ) : null}

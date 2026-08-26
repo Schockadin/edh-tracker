@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import {
   createDeck,
@@ -42,8 +42,14 @@ export function DeckForm({
   const [formatId, setFormatId] = useState<string>(
     deck ? String(deck.formatId) : formats[0] ? String(formats[0].id) : "",
   );
+  const selectedFormat = useMemo(
+    () => formats.find((f) => String(f.id) === formatId),
+    [formats, formatId],
+  );
+  const hasCommander = selectedFormat?.hasCommander ?? false;
   const [platform, setPlatform] = useState<Platform>(deck?.platform ?? "other");
   const [name, setName] = useState(deck?.name ?? "");
+  const [theme, setTheme] = useState(deck?.theme ?? "");
   const [commander, setCommander] = useState(deck?.commander ?? "");
   const [partnerCommander, setPartnerCommander] = useState(
     deck?.partnerCommander ?? "",
@@ -136,25 +142,30 @@ export function DeckForm({
     e.preventDefault();
     setError(null);
 
-    if (!commander.trim() || !commanderValid) {
-      setError("Bitte einen gültigen Commander (aus den Vorschlägen) wählen.");
-      return;
-    }
-    if (partnerCommander.trim() && !partnerValid) {
-      setError("Der Partner ist keine gültige Karte.");
-      return;
+    if (hasCommander) {
+      if (!commander.trim() || !commanderValid) {
+        setError(
+          "Bitte einen gültigen Commander (aus den Vorschlägen) wählen.",
+        );
+        return;
+      }
+      if (partnerCommander.trim() && !partnerValid) {
+        setError("Der Partner ist keine gültige Karte.");
+        return;
+      }
     }
 
     const input = {
       name,
-      commander,
-      partnerCommander,
+      commander: hasCommander ? commander : "",
+      partnerCommander: hasCommander ? partnerCommander : "",
       formatId: Number(formatId),
+      theme,
       url,
       platform,
       colorIdentity: colorIdentity.filter((c) => COLORS.includes(c as never)),
-      commanderImage,
-      partnerImage,
+      commanderImage: hasCommander ? commanderImage : null,
+      partnerImage: hasCommander ? partnerImage : null,
       bracket: bracket === "" ? null : Number(bracket),
     };
     startTransition(async () => {
@@ -251,46 +262,62 @@ export function DeckForm({
             </select>
           </div>
           <div>
-            <label htmlFor="commander" className="label">
-              Commander
+            <label htmlFor="theme" className="label">
+              Theme (optional)
             </label>
-            <CardInput
-              id="commander"
-              value={commander}
-              onChange={setCommander}
-              placeholder="z. B. Atraxa, Praetors' Voice"
-              required
-              ariaLabel="Commander"
-              initiallyValid={editing && Boolean(deck?.commander)}
-              onResolved={(card) => {
-                setCommanderCard(card);
-                setCommanderImage(card?.artCrop ?? null);
-                setCommanderValid(Boolean(card));
-                applyDerivedColors([card, partnerCard]);
-              }}
+            <input
+              id="theme"
+              className="input"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              placeholder="z. B. Aristocrats, Aggro, Control"
             />
           </div>
-          <div>
-            <label htmlFor="partner" className="label">
-              Partner / Hintergrund (optional)
-            </label>
-            <CardInput
-              id="partner"
-              value={partnerCommander}
-              onChange={setPartnerCommander}
-              placeholder="optional"
-              ariaLabel="Partner"
-              initiallyValid={editing && Boolean(deck?.partnerCommander)}
-              onResolved={(card) => {
-                setPartnerCard(card);
-                setPartnerImage(card?.artCrop ?? null);
-                setPartnerValid(
-                  Boolean(card) || partnerCommander.trim() === "",
-                );
-                applyDerivedColors([commanderCard, card]);
-              }}
-            />
-          </div>
+          {hasCommander ? (
+            <>
+              <div>
+                <label htmlFor="commander" className="label">
+                  Commander
+                </label>
+                <CardInput
+                  id="commander"
+                  value={commander}
+                  onChange={setCommander}
+                  placeholder="z. B. Atraxa, Praetors' Voice"
+                  required
+                  ariaLabel="Commander"
+                  initiallyValid={editing && Boolean(deck?.commander)}
+                  onResolved={(card) => {
+                    setCommanderCard(card);
+                    setCommanderImage(card?.artCrop ?? null);
+                    setCommanderValid(Boolean(card));
+                    applyDerivedColors([card, partnerCard]);
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="partner" className="label">
+                  Partner / Hintergrund (optional)
+                </label>
+                <CardInput
+                  id="partner"
+                  value={partnerCommander}
+                  onChange={setPartnerCommander}
+                  placeholder="optional"
+                  ariaLabel="Partner"
+                  initiallyValid={editing && Boolean(deck?.partnerCommander)}
+                  onResolved={(card) => {
+                    setPartnerCard(card);
+                    setPartnerImage(card?.artCrop ?? null);
+                    setPartnerValid(
+                      Boolean(card) || partnerCommander.trim() === "",
+                    );
+                    applyDerivedColors([commanderCard, card]);
+                  }}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div>

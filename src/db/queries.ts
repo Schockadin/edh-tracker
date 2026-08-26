@@ -17,15 +17,19 @@ export const CACHE_TAGS = {
   games: "games",
   groups: "groups",
   formats: "formats",
+  settings: "settings",
 } as const;
 
-function serializeDeck(deck: Deck): DeckView {
+function serializeDeck(deck: Deck & { format: Format }): DeckView {
   return {
     id: deck.id,
     name: deck.name,
     commander: deck.commander,
     partnerCommander: deck.partnerCommander,
     formatId: deck.formatId,
+    formatName: deck.format.name,
+    formatHasCommander: deck.format.hasCommander,
+    theme: deck.theme,
     platform: deck.platform,
     url: deck.url,
     colorIdentity: deck.colorIdentity ?? [],
@@ -44,20 +48,27 @@ function serializeFormat(format: Format): FormatView {
     name: format.name,
     constructionType: format.constructionType,
     multiplayer: format.multiplayer,
+    hasCommander: format.hasCommander,
     createdAt: format.createdAt.toISOString(),
     updatedAt: format.updatedAt.toISOString(),
   };
 }
 
 function serializeGame(
-  game: Game & { deck: Deck; opponents: GameOpponent[] },
+  game: Game & {
+    deck: Deck & { format: Format };
+    opponents: GameOpponent[];
+  },
 ): GameView {
   return {
     id: game.id,
     deckId: game.deckId,
     deckName: game.deck.name,
     deckCommander: game.deck.commander,
+    deckTheme: game.deck.theme,
     formatId: game.deck.formatId,
+    formatName: game.deck.format.name,
+    formatHasCommander: game.deck.format.hasCommander,
     playedAt: game.playedAt.toISOString(),
     bracket: game.bracket,
     turnCount: game.turnCount,
@@ -71,6 +82,7 @@ function serializeGame(
       playerName: o.playerName,
       commander: o.commander,
       partnerCommander: o.partnerCommander,
+      theme: o.theme,
     })),
     createdAt: game.createdAt.toISOString(),
   };
@@ -80,12 +92,13 @@ function serializeGame(
 export const getDecks = unstable_cache(
   async (): Promise<DeckView[]> => {
     const rows = await db.query.decks.findMany({
+      with: { format: true },
       orderBy: (d, { desc }) => [desc(d.createdAt)],
     });
     return rows.map(serializeDeck);
   },
   ["decks:list"],
-  { tags: [CACHE_TAGS.decks] },
+  { tags: [CACHE_TAGS.decks, CACHE_TAGS.formats] },
 );
 
 /** A single deck by id (or null). Cached; invalidated via the `decks` tag. */
@@ -93,11 +106,12 @@ export const getDeck = unstable_cache(
   async (id: number): Promise<DeckView | null> => {
     const row = await db.query.decks.findFirst({
       where: (d, { eq }) => eq(d.id, id),
+      with: { format: true },
     });
     return row ? serializeDeck(row) : null;
   },
   ["decks:one"],
-  { tags: [CACHE_TAGS.decks] },
+  { tags: [CACHE_TAGS.decks, CACHE_TAGS.formats] },
 );
 
 /**
@@ -109,13 +123,13 @@ export const getDeck = unstable_cache(
 export const getGames = unstable_cache(
   async (): Promise<GameView[]> => {
     const rows = await db.query.games.findMany({
-      with: { deck: true, opponents: true },
+      with: { deck: { with: { format: true } }, opponents: true },
       orderBy: (g) => [desc(g.playedAt), desc(g.id)],
     });
     return rows.map(serializeGame);
   },
   ["games:list"],
-  { tags: [CACHE_TAGS.games, CACHE_TAGS.decks] },
+  { tags: [CACHE_TAGS.games, CACHE_TAGS.decks, CACHE_TAGS.formats] },
 );
 
 /**
@@ -125,12 +139,12 @@ export const getGame = unstable_cache(
   async (id: number): Promise<GameView | null> => {
     const row = await db.query.games.findFirst({
       where: (g, { eq }) => eq(g.id, id),
-      with: { deck: true, opponents: true },
+      with: { deck: { with: { format: true } }, opponents: true },
     });
     return row ? serializeGame(row) : null;
   },
   ["games:one"],
-  { tags: [CACHE_TAGS.games, CACHE_TAGS.decks] },
+  { tags: [CACHE_TAGS.games, CACHE_TAGS.decks, CACHE_TAGS.formats] },
 );
 
 function serializePlayerGroup(group: PlayerGroup): PlayerGroupView {
@@ -189,4 +203,45 @@ export const getFormat = unstable_cache(
   },
   ["formats:one"],
   { tags: [CACHE_TAGS.formats] },
+);
+
+/** Key of the app setting holding the default format filter. */
+export const DEFAULT_FORMAT_SETTING = "default_format_id";
+
+/** A single app setting value (or null). Cached; invalidated via `settings`. */
+export const getSetting = unstable_cache(
+  async (key: string): Promise<string | null> => {
+    const row = await db.query.appSettings.findFirst({
+      where: (s, { eq }) => eq(s.key, key),
+    });
+    return row?.value ?? null;
+  },
+  ["settings:one"],
+  { tags: [CACHE_TAGS.settings] },
+);
+
+/**
+ * The configured default format id for the dashboard/deck-list filter, falling
+ * back to the Commander format (or the first format) when unset or stale.
+ * Cached; invalidated via the `settings` and `formats` tags.
+ */
+export const getDefaultFormatId = unstable_cache(
+  async (): Promise<number | null> => {
+    const [formats, raw] = await Promise.all([
+      db.query.formats.findMany({ orderBy: (f, { asc }) => [asc(f.id)] }),
+      db.query.appSettings.findFirst({
+        where: (s, { eq }) => eq(s.key, DEFAULT_FORMAT_SETTING),
+      }),
+    ]);
+    if (formats.length === 0) return null;
+
+    const configured = raw?.value ? Number(raw.value) : null;
+    if (configured && formats.some((f) => f.id === configured)) {
+      return configured;
+    }
+    const commander = formats.find((f) => f.name === "Commander");
+    return commander?.id ?? formats[0].id;
+  },
+  ["settings:default-format"],
+  { tags: [CACHE_TAGS.settings, CACHE_TAGS.formats] },
 );

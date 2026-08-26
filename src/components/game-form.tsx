@@ -19,6 +19,7 @@ interface OpponentRow {
   playerName: string;
   commander: string;
   partnerCommander: string;
+  theme: string;
   commanderValid: boolean;
   partnerValid: boolean;
 }
@@ -32,6 +33,7 @@ const emptyOpponent: OpponentRow = {
   playerName: "",
   commander: "",
   partnerCommander: "",
+  theme: "",
   commanderValid: true,
   partnerValid: true,
 };
@@ -58,6 +60,7 @@ export function GameForm({
     () => formats.find((f) => String(f.id) === formatId),
     [formats, formatId],
   );
+  const hasCommander = selectedFormat?.hasCommander ?? false;
   const availableDecks = useMemo(
     () => decks.filter((d) => String(d.formatId) === formatId),
     [decks, formatId],
@@ -86,8 +89,9 @@ export function GameForm({
     if (game && game.opponents.length > 0) {
       return game.opponents.map((o) => ({
         playerName: o.playerName ?? "",
-        commander: o.commander,
+        commander: o.commander ?? "",
         partnerCommander: o.partnerCommander ?? "",
+        theme: o.theme ?? "",
         commanderValid: true,
         partnerValid: true,
       }));
@@ -154,6 +158,7 @@ export function GameForm({
         playerName,
         commander: "",
         partnerCommander: "",
+        theme: "",
         commanderValid: true,
         partnerValid: true,
       })),
@@ -165,22 +170,30 @@ export function GameForm({
     e.preventDefault();
     setError(null);
 
+    // A row counts when it identifies an opponent: a commander in Commander
+    // games, otherwise a theme or a player name.
     const filledOpponents = opponents
       .map((o, idx) => ({ ...o, _idx: idx }))
-      .filter((o) => o.commander.trim().length > 0);
+      .filter((o) =>
+        hasCommander
+          ? o.commander.trim().length > 0
+          : o.theme.trim().length > 0 || o.playerName.trim().length > 0,
+      );
 
-    // Enforce that entered cards are real Scryfall cards.
-    if (filledOpponents.some((o) => !o.commanderValid)) {
-      setError("Ein Gegner-Commander ist keine gültige Karte.");
-      return;
-    }
-    if (
-      filledOpponents.some(
-        (o) => o.partnerCommander.trim().length > 0 && !o.partnerValid,
-      )
-    ) {
-      setError("Ein Gegner-Partner ist keine gültige Karte.");
-      return;
+    if (hasCommander) {
+      // Enforce that entered cards are real Scryfall cards.
+      if (filledOpponents.some((o) => !o.commanderValid)) {
+        setError("Ein Gegner-Commander ist keine gültige Karte.");
+        return;
+      }
+      if (
+        filledOpponents.some(
+          (o) => o.partnerCommander.trim().length > 0 && !o.partnerValid,
+        )
+      ) {
+        setError("Ein Gegner-Partner ist keine gültige Karte.");
+        return;
+      }
     }
 
     let winnerIndex: number | null = null;
@@ -190,7 +203,7 @@ export function GameForm({
       winnerIndex = pos >= 0 ? pos : null;
     }
     if (winnerType === "opponent" && winnerIndex === null) {
-      setError("Bitte den siegreichen Gegner auswählen (mit Commander).");
+      setError("Bitte den siegreichen Gegner auswählen.");
       return;
     }
 
@@ -205,8 +218,9 @@ export function GameForm({
       notes,
       opponents: filledOpponents.map((o) => ({
         playerName: o.playerName,
-        commander: o.commander,
-        partnerCommander: o.partnerCommander,
+        commander: hasCommander ? o.commander : "",
+        partnerCommander: hasCommander ? o.partnerCommander : "",
+        theme: hasCommander ? "" : o.theme,
       })),
     };
 
@@ -381,14 +395,19 @@ export function GameForm({
           </div>
         </div>
         <p className="text-xs text-muted">
-          Gegnerische Commander mit Scryfall-Vorschlägen. Leere Zeilen werden
-          ignoriert.
+          {hasCommander
+            ? "Gegnerische Commander mit Scryfall-Vorschlägen. Leere Zeilen werden ignoriert."
+            : "Gegner ohne Commander — optional mit Deck-Theme. Leere Zeilen werden ignoriert."}
         </p>
         <div className="space-y-3">
           {opponents.map((o, i) => (
             <div
               key={i}
-              className="grid gap-2 rounded-lg border divider-soft p-3 sm:grid-cols-[1fr_1.4fr_1.4fr_auto]"
+              className={`grid gap-2 rounded-lg border divider-soft p-3 ${
+                hasCommander
+                  ? "sm:grid-cols-[1fr_1.4fr_1.4fr_auto]"
+                  : "sm:grid-cols-[1fr_1.4fr_auto]"
+              }`}
             >
               <input
                 className="input"
@@ -398,46 +417,58 @@ export function GameForm({
                   updateOpponent(i, { playerName: e.target.value })
                 }
               />
-              <CardInput
-                value={o.commander}
-                onChange={(v) => updateOpponent(i, { commander: v })}
-                placeholder="Commander"
-                ariaLabel={`Gegner ${i + 1} Commander`}
-                onResolved={(card) =>
-                  setOpponents((prev) =>
-                    prev.map((row, idx) =>
-                      idx === i
-                        ? {
-                            ...row,
-                            commanderValid: card
-                              ? true
-                              : row.commander.trim() === "",
-                          }
-                        : row,
-                    ),
-                  )
-                }
-              />
-              <CardInput
-                value={o.partnerCommander}
-                onChange={(v) => updateOpponent(i, { partnerCommander: v })}
-                placeholder="Partner (optional)"
-                ariaLabel={`Gegner ${i + 1} Partner`}
-                onResolved={(card) =>
-                  setOpponents((prev) =>
-                    prev.map((row, idx) =>
-                      idx === i
-                        ? {
-                            ...row,
-                            partnerValid: card
-                              ? true
-                              : row.partnerCommander.trim() === "",
-                          }
-                        : row,
-                    ),
-                  )
-                }
-              />
+              {hasCommander ? (
+                <>
+                  <CardInput
+                    value={o.commander}
+                    onChange={(v) => updateOpponent(i, { commander: v })}
+                    placeholder="Commander"
+                    ariaLabel={`Gegner ${i + 1} Commander`}
+                    onResolved={(card) =>
+                      setOpponents((prev) =>
+                        prev.map((row, idx) =>
+                          idx === i
+                            ? {
+                                ...row,
+                                commanderValid: card
+                                  ? true
+                                  : row.commander.trim() === "",
+                              }
+                            : row,
+                        ),
+                      )
+                    }
+                  />
+                  <CardInput
+                    value={o.partnerCommander}
+                    onChange={(v) => updateOpponent(i, { partnerCommander: v })}
+                    placeholder="Partner (optional)"
+                    ariaLabel={`Gegner ${i + 1} Partner`}
+                    onResolved={(card) =>
+                      setOpponents((prev) =>
+                        prev.map((row, idx) =>
+                          idx === i
+                            ? {
+                                ...row,
+                                partnerValid: card
+                                  ? true
+                                  : row.partnerCommander.trim() === "",
+                              }
+                            : row,
+                        ),
+                      )
+                    }
+                  />
+                </>
+              ) : (
+                <input
+                  className="input"
+                  placeholder="Deck-Theme (optional)"
+                  value={o.theme}
+                  aria-label={`Gegner ${i + 1} Theme`}
+                  onChange={(e) => updateOpponent(i, { theme: e.target.value })}
+                />
+              )}
               {selectedFormat?.multiplayer && (
                 <button
                   type="button"
@@ -489,14 +520,19 @@ export function GameForm({
                 onChange={(e) => setWinnerOpponentIndex(e.target.value)}
               >
                 <option value="">– auswählen –</option>
-                {opponents.map((o, i) =>
-                  o.commander.trim() ? (
+                {opponents.map((o, i) => {
+                  const label = hasCommander ? o.commander.trim() : o.theme.trim();
+                  const identified = hasCommander
+                    ? o.commander.trim()
+                    : o.theme.trim() || o.playerName.trim();
+                  if (!identified) return null;
+                  return (
                     <option key={i} value={i}>
-                      {o.commander}
-                      {o.playerName ? ` (${o.playerName})` : ""}
+                      {label || o.playerName}
+                      {label && o.playerName ? ` (${o.playerName})` : ""}
                     </option>
-                  ) : null,
-                )}
+                  );
+                })}
               </select>
             </div>
           ) : null}

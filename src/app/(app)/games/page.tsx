@@ -4,7 +4,7 @@ import Link from "next/link";
 import { DeleteGameButton, EditGameButton } from "@/components/game-actions";
 import { SectionHeader } from "@/components/ui";
 import { getGames } from "@/db/queries";
-import { WIN_TYPE_LABELS, type GameView } from "@/lib/types";
+import { opponentLabel, WIN_TYPE_LABELS, type GameView } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Spiele" };
 
@@ -57,10 +57,13 @@ function GameCard({ game }: { game: GameView }) {
             <span className="text-xs text-muted">{playedAt}</span>
           </div>
           <h3 className="mt-1 font-semibold">
-            {game.deckName}{" "}
-            <span className="font-normal text-muted">
-              — {game.deckCommander}
-            </span>
+            {game.deckName}
+            {game.deckCommander ?? game.deckTheme ? (
+              <span className="font-normal text-muted">
+                {" "}
+                — {game.deckCommander ?? game.deckTheme}
+              </span>
+            ) : null}
           </h3>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -83,15 +86,15 @@ function GameCard({ game }: { game: GameView }) {
 
       {winner ? (
         <p className="text-sm text-soft">
-          Gewonnen von <span className="font-medium">{winner.commander}</span>
-          {winner.playerName ? ` (${winner.playerName})` : ""}
+          Gewonnen von{" "}
+          <span className="font-medium">{opponentLabel(winner)}</span>
         </p>
       ) : null}
 
       {game.opponents.length > 0 ? (
         <div className="text-sm text-muted">
           <span className="text-subtle">Gegner: </span>
-          {game.opponents.map((o) => o.commander).join(", ")}
+          {game.opponents.map(opponentLabel).join(", ")}
         </div>
       ) : null}
 
