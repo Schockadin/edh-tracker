@@ -76,14 +76,16 @@ function DeckCard({
 
       <div className="mt-auto flex items-center justify-between border-t divider-soft pt-3">
         <div className="flex gap-3 text-xs">
-          <a
-            href={deck.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="link"
-          >
-            Deckliste ↗
-          </a>
+          {deck.url ? (
+            <a
+              href={deck.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link"
+            >
+              Extern ↗
+            </a>
+          ) : null}
           <Link
             href={`/decks/${deck.id}/edit`}
             className="text-soft hover:text-strong"

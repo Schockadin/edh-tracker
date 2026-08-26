@@ -6,13 +6,22 @@ import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import { CACHE_TAGS } from "@/db/queries";
-import { decks } from "@/db/schema";
+import { deckCards, decks } from "@/db/schema";
+import { parseCardImport } from "@/lib/decklist";
 import { importDeckFromUrl, type DeckImportResult } from "@/lib/deck-import";
+import { resolveCards } from "@/lib/scryfall-server";
 import { requireSession } from "@/lib/session";
 import { deckInputSchema, type DeckInput } from "@/lib/validation";
 
 export interface ActionState {
   ok: boolean;
+  error?: string;
+}
+
+export interface ImportState {
+  ok: boolean;
+  added?: number;
+  unresolved?: string[];
   error?: string;
 }
 
@@ -146,9 +155,57 @@ export async function setDeckArchived(
 
 export async function deleteDeck(id: number): Promise<void> {
   await requireSession();
-  // Games referencing this deck cascade-delete at the DB level.
+  // Games and deck cards referencing this deck cascade-delete at the DB level.
   await db.delete(decks).where(eq(decks.id, id));
   updateTag(CACHE_TAGS.decks);
   updateTag(CACHE_TAGS.games);
+  updateTag(CACHE_TAGS.cards);
   redirect("/decks");
+}
+
+/**
+ * Replace a deck's card list from pasted/uploaded text (plaintext or CSV).
+ * Names are resolved against Scryfall; unresolvable names are reported back.
+ */
+export async function importDeckList(
+  deckId: number,
+  content: string,
+): Promise<ImportState> {
+  await requireSession();
+  if (!content.trim()) return { ok: false, error: "Keine Karten gefunden." };
+
+  const lines = parseCardImport(content);
+  if (lines.length === 0) return { ok: false, error: "Keine Karten gefunden." };
+
+  const { resolved, unresolved } = await resolveCards(lines);
+
+  await db.transaction(async (tx) => {
+    await tx.delete(deckCards).where(eq(deckCards.deckId, deckId));
+    if (resolved.length > 0) {
+      await tx.insert(deckCards).values(
+        resolved.map((c) => ({
+          deckId,
+          name: c.name,
+          quantity: c.quantity,
+          scryfallId: c.scryfallId,
+          setCode: c.setCode,
+          collectorNumber: c.collectorNumber,
+          manaValue: c.manaValue,
+          typeLine: c.typeLine,
+          colorIdentity: c.colorIdentity,
+          imageUrl: c.imageUrl,
+          rarity: c.rarity,
+        })),
+      );
+    }
+  });
+
+  updateTag(CACHE_TAGS.cards);
+  return { ok: true, added: resolved.length, unresolved };
+}
+
+export async function clearDeckList(deckId: number): Promise<void> {
+  await requireSession();
+  await db.delete(deckCards).where(eq(deckCards.deckId, deckId));
+  updateTag(CACHE_TAGS.cards);
 }

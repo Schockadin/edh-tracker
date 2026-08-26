@@ -27,6 +27,12 @@ interface EdhApi {
         @Header("Authorization") authorization: String,
         @Body body: PushRequest,
     ): PushResponse
+
+    @POST("api/cards/import")
+    suspend fun importCards(
+        @Header("Authorization") authorization: String,
+        @Body body: CardImportRequest,
+    ): CardImportResponse
 }
 
 /** Builds a Retrofit [EdhApi] bound to a user-supplied base URL. */

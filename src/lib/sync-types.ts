@@ -1,4 +1,5 @@
 import type {
+  CardZone,
   ConstructionType,
   Platform,
   WinnerType,
@@ -31,7 +32,7 @@ export interface SyncDeck {
   formatUuid: string;
   theme: string | null;
   platform: Platform;
-  url: string;
+  url: string | null;
   colorIdentity: string[];
   commanderImage: string | null;
   partnerImage: string | null;
@@ -76,6 +77,41 @@ export interface SyncGroup {
   updatedAt: string;
 }
 
+export interface SyncDeckCard {
+  uuid: string;
+  deckUuid: string;
+  name: string;
+  quantity: number;
+  scryfallId: string | null;
+  setCode: string | null;
+  collectorNumber: string | null;
+  manaValue: number | null;
+  typeLine: string | null;
+  colorIdentity: string[];
+  imageUrl: string | null;
+  rarity: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SyncCollectionCard {
+  uuid: string;
+  name: string;
+  quantity: number;
+  zone: CardZone;
+  deckUuid: string | null;
+  scryfallId: string | null;
+  setCode: string | null;
+  collectorNumber: string | null;
+  manaValue: number | null;
+  typeLine: string | null;
+  colorIdentity: string[];
+  imageUrl: string | null;
+  rarity: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SyncDeletion {
   table: string;
   uuid: string;
@@ -90,6 +126,8 @@ export interface SyncPullResponse {
   games: SyncGame[];
   opponents: SyncOpponent[];
   groups: SyncGroup[];
+  deckCards: SyncDeckCard[];
+  collectionCards: SyncCollectionCard[];
   deletions: SyncDeletion[];
 }
 
@@ -104,6 +142,8 @@ export interface SyncPushRequest {
   games?: SyncGame[];
   opponents?: SyncOpponent[];
   groups?: SyncGroup[];
+  deckCards?: SyncDeckCard[];
+  collectionCards?: SyncCollectionCard[];
   deletions?: { table: string; uuid: string }[];
 }
 
@@ -115,6 +155,8 @@ export interface SyncPushResponse {
     games: number;
     opponents: number;
     groups: number;
+    deckCards: number;
+    collectionCards: number;
     deletions: number;
   };
   serverTime: string;

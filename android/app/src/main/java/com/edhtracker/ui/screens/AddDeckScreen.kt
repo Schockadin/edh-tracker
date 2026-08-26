@@ -44,7 +44,7 @@ fun AddDeckScreen(vm: AppViewModel, onClose: () -> Unit) {
     var platform by remember { mutableStateOf("other") }
     var bracket by remember { mutableStateOf("") }
 
-    val canSave = name.isNotBlank() && format != null && url.isNotBlank()
+    val canSave = name.isNotBlank() && format != null
 
     Scaffold(
         topBar = {
@@ -90,7 +90,7 @@ fun AddDeckScreen(vm: AppViewModel, onClose: () -> Unit) {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
-                label = { Text("Deck-URL") },
+                label = { Text("Deck-URL (optional)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 modifier = Modifier.fillMaxWidth(),
@@ -117,7 +117,7 @@ fun AddDeckScreen(vm: AppViewModel, onClose: () -> Unit) {
                         name = name.trim(),
                         commander = commander.ifBlank { null },
                         formatUuid = f.uuid,
-                        url = url.trim(),
+                        url = url.trim().ifBlank { null },
                         platform = platform,
                         theme = null,
                         bracket = bracket.toIntOrNull(),

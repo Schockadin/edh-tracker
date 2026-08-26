@@ -3,6 +3,7 @@ package com.edhtracker.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.VideogameAsset
@@ -29,6 +30,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.edhtracker.ui.screens.AddDeckScreen
 import com.edhtracker.ui.screens.AddGameScreen
+import com.edhtracker.ui.screens.CollectionScreen
+import com.edhtracker.ui.screens.DeckDetailScreen
 import com.edhtracker.ui.screens.DecksScreen
 import com.edhtracker.ui.screens.GamesScreen
 import com.edhtracker.ui.screens.LoginScreen
@@ -38,11 +41,13 @@ import com.edhtracker.ui.screens.StatsScreen
 private sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
     data object Games : Dest("games", "Spiele", Icons.Filled.VideogameAsset)
     data object Decks : Dest("decks", "Decks", Icons.Filled.Style)
+    data object Collection : Dest("collection", "Sammlung", Icons.Filled.LibraryBooks)
     data object Stats : Dest("stats", "Statistik", Icons.Filled.BarChart)
-    data object Settings : Dest("settings", "Einstellungen", Icons.Filled.Settings)
+    data object Settings : Dest("settings", "Settings", Icons.Filled.Settings)
 }
 
-private val bottomDests = listOf(Dest.Games, Dest.Decks, Dest.Stats, Dest.Settings)
+private val bottomDests =
+    listOf(Dest.Games, Dest.Decks, Dest.Collection, Dest.Stats, Dest.Settings)
 
 @Composable
 fun EdhTrackerApp(vm: AppViewModel = viewModel()) {
@@ -98,8 +103,13 @@ fun EdhTrackerApp(vm: AppViewModel = viewModel()) {
                 GamesScreen(vm, onAddGame = { navController.navigate("add_game") })
             }
             composable(Dest.Decks.route) {
-                DecksScreen(vm, onAddDeck = { navController.navigate("add_deck") })
+                DecksScreen(
+                    vm,
+                    onAddDeck = { navController.navigate("add_deck") },
+                    onOpenDeck = { uuid -> navController.navigate("deck/$uuid") },
+                )
             }
+            composable(Dest.Collection.route) { CollectionScreen(vm) }
             composable(Dest.Stats.route) { StatsScreen(vm) }
             composable(Dest.Settings.route) { SettingsScreen(vm) }
             composable("add_game") {
@@ -107,6 +117,10 @@ fun EdhTrackerApp(vm: AppViewModel = viewModel()) {
             }
             composable("add_deck") {
                 AddDeckScreen(vm, onClose = { navController.popBackStack() })
+            }
+            composable("deck/{uuid}") { entry ->
+                val uuid = entry.arguments?.getString("uuid").orEmpty()
+                DeckDetailScreen(vm, uuid, onClose = { navController.popBackStack() })
             }
         }
     }

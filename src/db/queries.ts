@@ -4,13 +4,23 @@ import { desc } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import type {
+  CardView,
+  CollectionCardView,
   DeckView,
   FormatView,
   GameView,
   PlayerGroupView,
 } from "@/lib/types";
 import { db } from "./index";
-import type { Deck, Game, Format, GameOpponent, PlayerGroup } from "./schema";
+import type {
+  CollectionCard,
+  Deck,
+  DeckCard,
+  Game,
+  Format,
+  GameOpponent,
+  PlayerGroup,
+} from "./schema";
 
 export const CACHE_TAGS = {
   decks: "decks",
@@ -18,6 +28,8 @@ export const CACHE_TAGS = {
   groups: "groups",
   formats: "formats",
   settings: "settings",
+  cards: "cards",
+  collection: "collection",
 } as const;
 
 function serializeDeck(deck: Deck & { format: Format }): DeckView {
@@ -145,6 +157,71 @@ export const getGame = unstable_cache(
   },
   ["games:one"],
   { tags: [CACHE_TAGS.games, CACHE_TAGS.decks, CACHE_TAGS.formats] },
+);
+
+function serializeCard(card: DeckCard): CardView {
+  return {
+    id: card.id,
+    uuid: card.uuid,
+    name: card.name,
+    quantity: card.quantity,
+    scryfallId: card.scryfallId,
+    setCode: card.setCode,
+    collectorNumber: card.collectorNumber,
+    manaValue: card.manaValue,
+    typeLine: card.typeLine,
+    colorIdentity: card.colorIdentity ?? [],
+    imageUrl: card.imageUrl,
+    rarity: card.rarity,
+  };
+}
+
+/** All cards of a deck, sorted by name. Cached; invalidated via `cards`. */
+export const getDeckCards = unstable_cache(
+  async (deckId: number): Promise<CardView[]> => {
+    const rows = await db.query.deckCards.findMany({
+      where: (c, { eq }) => eq(c.deckId, deckId),
+      orderBy: (c, { asc }) => [asc(c.name)],
+    });
+    return rows.map(serializeCard);
+  },
+  ["deck-cards:list"],
+  { tags: [CACHE_TAGS.cards] },
+);
+
+function serializeCollectionCard(
+  card: CollectionCard & { deck?: { name: string } | null },
+): CollectionCardView {
+  return {
+    id: card.id,
+    uuid: card.uuid,
+    name: card.name,
+    quantity: card.quantity,
+    scryfallId: card.scryfallId,
+    setCode: card.setCode,
+    collectorNumber: card.collectorNumber,
+    manaValue: card.manaValue,
+    typeLine: card.typeLine,
+    colorIdentity: card.colorIdentity ?? [],
+    imageUrl: card.imageUrl,
+    rarity: card.rarity,
+    zone: card.zone,
+    deckId: card.deckId,
+    deckName: card.deck?.name ?? null,
+  };
+}
+
+/** The whole collection, sorted by name. Cached; invalidated via `collection`. */
+export const getCollectionCards = unstable_cache(
+  async (): Promise<CollectionCardView[]> => {
+    const rows = await db.query.collectionCards.findMany({
+      with: { deck: true },
+      orderBy: (c, { asc }) => [asc(c.name)],
+    });
+    return rows.map(serializeCollectionCard);
+  },
+  ["collection:list"],
+  { tags: [CACHE_TAGS.collection, CACHE_TAGS.decks] },
 );
 
 function serializePlayerGroup(group: PlayerGroup): PlayerGroupView {

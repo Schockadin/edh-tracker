@@ -10,9 +10,15 @@ Passwort und ein signiertes Session-Cookie.
 
 ## Features
 
-- **Decks per Link** von Moxfield, ManaBox oder Archidekt speichern.
-  Der Deck-Name wird — wo möglich — per „Details laden" von der Plattform geholt
-  (best-effort; Moxfield blockt serverseitige Zugriffe teils per Cloudflare).
+- **Decks per Link** von Moxfield, ManaBox oder Archidekt speichern — der Link
+  ist **optional**. Der Deck-Name wird — wo möglich — per „Details laden" von der
+  Plattform geholt (best-effort; Moxfield blockt serverseitige Zugriffe teils
+  per Cloudflare).
+- **Echte Decklisten**: pro Deck eine optionale Kartenliste per **Einfügen**
+  (Plaintext) oder **Upload** (.txt / .csv). Namen werden serverseitig über
+  Scryfalls `/cards/collection` aufgelöst (Set, Typ, Farben, Bild, Mana-Wert).
+- **Sammlung**: die gesamte Kartensammlung erfassen (gleiche Import-Optionen wie
+  bei Decks); Karten sind **verbaut** (in einem Deck) oder **verfügbar**.
 - **Scryfall-Anbindung** für alle Kartenfelder (Commander, Partner, Gegner):
   Autocomplete beim Tippen und Validierung, sodass nur echte Karten gespeichert
   werden. Farbidentität und Commander-Bild werden automatisch von Scryfall
@@ -127,6 +133,10 @@ vorbei (`/api/*` ist in `src/proxy.ts` ausgenommen).
 | `/api/auth/login`    | POST    | `{ password }` → `{ token, expiresInDays }` (`APP_PASSWORD`)|
 | `/api/sync/pull`     | GET     | `?since=<ISO>` → geänderte Datensätze + Tombstones          |
 | `/api/sync/push`     | POST    | Upsert von Client-Änderungen (nach `uuid`) + Löschungen     |
+| `/api/cards/import`  | POST    | `{ content }` (Text/CSV) → über Scryfall aufgelöste Karten  |
+
+Der Sync umfasst Decks, Spiele, Gegner, Formate, Gruppen sowie **Decklisten**
+(`deck_cards`) und die **Sammlung** (`collection_cards`).
 
 **Identität & Änderungsverfolgung.** Jede syncbare Tabelle hat zusätzlich zur
 seriellen `id` eine stabile `uuid` (geräteübergreifende Identität), ein

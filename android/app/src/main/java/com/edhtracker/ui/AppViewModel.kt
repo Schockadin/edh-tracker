@@ -5,10 +5,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.edhtracker.EdhApp
 import com.edhtracker.data.SyncRepository
+import com.edhtracker.data.local.CollectionCardEntity
+import com.edhtracker.data.local.DeckCardEntity
 import com.edhtracker.data.local.DeckEntity
 import com.edhtracker.data.local.FormatEntity
 import com.edhtracker.data.local.GameEntity
 import com.edhtracker.data.local.OpponentEntity
+import kotlinx.coroutines.flow.Flow
 import com.edhtracker.sync.SyncScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +40,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         repo.games.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val opponents: StateFlow<List<OpponentEntity>> =
         repo.opponents.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val collection: StateFlow<List<CollectionCardEntity>> =
+        repo.collection.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun deckCards(deckUuid: String): Flow<List<DeckCardEntity>> = repo.deckCards(deckUuid)
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
@@ -104,7 +111,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         name: String,
         commander: String?,
         formatUuid: String,
-        url: String,
+        url: String?,
         platform: String,
         theme: String?,
         bracket: Int?,
@@ -115,6 +122,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _message.value = "Deck gespeichert."
             onDone()
         }
+    }
+
+    fun importDeckList(deckUuid: String, content: String) {
+        viewModelScope.launch {
+            _busy.value = true
+            val result = repo.importDeckList(deckUuid, content)
+            _message.value = result.fold(
+                onSuccess = { importSummary(it) },
+                onFailure = { "Import fehlgeschlagen (Server erreichbar?)." },
+            )
+            _busy.value = false
+        }
+    }
+
+    fun importCollection(content: String, zone: String) {
+        viewModelScope.launch {
+            _busy.value = true
+            val result = repo.importCollection(content, zone)
+            _message.value = result.fold(
+                onSuccess = { importSummary(it) },
+                onFailure = { "Import fehlgeschlagen (Server erreichbar?)." },
+            )
+            _busy.value = false
+        }
+    }
+
+    private fun importSummary(r: SyncRepository.ImportResult): String {
+        val base = "${r.added} Karten importiert."
+        return if (r.unresolved.isEmpty()) base
+        else "$base ${r.unresolved.size} nicht gefunden."
+    }
+
+    fun setCollectionZone(card: CollectionCardEntity, zone: String) {
+        viewModelScope.launch { repo.setCollectionZone(card, zone) }
+    }
+
+    fun deleteCollectionCard(uuid: String) {
+        viewModelScope.launch { repo.deleteCollectionCard(uuid) }
     }
 
     fun logout() {

@@ -24,7 +24,7 @@ data class SyncDeckDto(
     val formatUuid: String,
     val theme: String?,
     val platform: String,
-    val url: String,
+    val url: String?,
     val colorIdentity: List<String>,
     val commanderImage: String?,
     val partnerImage: String?,
@@ -68,6 +68,41 @@ data class SyncGroupDto(
     val updatedAt: String,
 )
 
+data class SyncDeckCardDto(
+    val uuid: String,
+    val deckUuid: String,
+    val name: String,
+    val quantity: Int,
+    val scryfallId: String?,
+    val setCode: String?,
+    val collectorNumber: String?,
+    val manaValue: Int?,
+    val typeLine: String?,
+    val colorIdentity: List<String>,
+    val imageUrl: String?,
+    val rarity: String?,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+data class SyncCollectionCardDto(
+    val uuid: String,
+    val name: String,
+    val quantity: Int,
+    val zone: String,
+    val deckUuid: String?,
+    val scryfallId: String?,
+    val setCode: String?,
+    val collectorNumber: String?,
+    val manaValue: Int?,
+    val typeLine: String?,
+    val colorIdentity: List<String>,
+    val imageUrl: String?,
+    val rarity: String?,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
 data class SyncDeletionDto(
     val table: String,
     val uuid: String,
@@ -81,6 +116,8 @@ data class PullResponse(
     val games: List<SyncGameDto> = emptyList(),
     val opponents: List<SyncOpponentDto> = emptyList(),
     val groups: List<SyncGroupDto> = emptyList(),
+    val deckCards: List<SyncDeckCardDto> = emptyList(),
+    val collectionCards: List<SyncCollectionCardDto> = emptyList(),
     val deletions: List<SyncDeletionDto> = emptyList(),
 )
 
@@ -90,10 +127,34 @@ data class PushRequest(
     val games: List<SyncGameDto> = emptyList(),
     val opponents: List<SyncOpponentDto> = emptyList(),
     val groups: List<SyncGroupDto> = emptyList(),
+    val deckCards: List<SyncDeckCardDto> = emptyList(),
+    val collectionCards: List<SyncCollectionCardDto> = emptyList(),
     val deletions: List<SyncDeletionDto> = emptyList(),
 )
 
 data class PushResponse(
     val ok: Boolean = true,
     val serverTime: String? = null,
+)
+
+// --- Card import (POST /api/cards/import) ----------------------------------
+
+data class CardImportRequest(val content: String)
+
+data class ResolvedCardDto(
+    val name: String,
+    val quantity: Int,
+    val scryfallId: String?,
+    val setCode: String?,
+    val collectorNumber: String?,
+    val manaValue: Int?,
+    val typeLine: String?,
+    val colorIdentity: List<String>,
+    val imageUrl: String?,
+    val rarity: String?,
+)
+
+data class CardImportResponse(
+    val resolved: List<ResolvedCardDto> = emptyList(),
+    val unresolved: List<String> = emptyList(),
 )

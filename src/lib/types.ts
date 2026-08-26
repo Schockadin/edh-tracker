@@ -1,4 +1,5 @@
 import type {
+  CardZone,
   ConstructionType,
   Platform,
   WinnerType,
@@ -19,7 +20,7 @@ export interface DeckView {
   formatHasCommander: boolean;
   theme: string | null;
   platform: Platform;
-  url: string;
+  url: string | null;
   colorIdentity: string[];
   commanderImage: string | null;
   partnerImage: string | null;
@@ -65,6 +66,32 @@ export interface PlayerGroupView {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface CardView {
+  id: number;
+  uuid: string;
+  name: string;
+  quantity: number;
+  scryfallId: string | null;
+  setCode: string | null;
+  collectorNumber: string | null;
+  manaValue: number | null;
+  typeLine: string | null;
+  colorIdentity: string[];
+  imageUrl: string | null;
+  rarity: string | null;
+}
+
+export interface CollectionCardView extends CardView {
+  zone: CardZone;
+  deckId: number | null;
+  deckName: string | null;
+}
+
+export const CARD_ZONE_LABELS: Record<CardZone, string> = {
+  used: "Verbaut",
+  free: "Verfügbar",
+};
 
 export interface FormatView {
   id: number;

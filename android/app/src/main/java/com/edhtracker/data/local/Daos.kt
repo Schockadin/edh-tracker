@@ -109,6 +109,54 @@ interface GroupDao {
 }
 
 @Dao
+interface DeckCardDao {
+    @Query("SELECT * FROM deck_cards WHERE deckUuid = :deckUuid ORDER BY name")
+    fun observeForDeck(deckUuid: String): Flow<List<DeckCardEntity>>
+
+    @Query("SELECT * FROM deck_cards WHERE dirty = 1")
+    suspend fun dirty(): List<DeckCardEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(rows: List<DeckCardEntity>)
+
+    @Query("UPDATE deck_cards SET dirty = 0 WHERE uuid IN (:uuids)")
+    suspend fun clearDirty(uuids: List<String>)
+
+    @Query("DELETE FROM deck_cards WHERE uuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
+
+    @Query("SELECT uuid FROM deck_cards WHERE deckUuid = :deckUuid")
+    suspend fun uuidsForDeck(deckUuid: String): List<String>
+
+    @Query("DELETE FROM deck_cards WHERE deckUuid = :deckUuid")
+    suspend fun deleteForDeck(deckUuid: String)
+}
+
+@Dao
+interface CollectionCardDao {
+    @Query("SELECT * FROM collection_cards ORDER BY name")
+    fun observeAll(): Flow<List<CollectionCardEntity>>
+
+    @Query("SELECT * FROM collection_cards WHERE dirty = 1")
+    suspend fun dirty(): List<CollectionCardEntity>
+
+    @Query("SELECT * FROM collection_cards WHERE zone = :zone")
+    suspend fun forZone(zone: String): List<CollectionCardEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(rows: List<CollectionCardEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertOne(row: CollectionCardEntity)
+
+    @Query("UPDATE collection_cards SET dirty = 0 WHERE uuid IN (:uuids)")
+    suspend fun clearDirty(uuids: List<String>)
+
+    @Query("DELETE FROM collection_cards WHERE uuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
+}
+
+@Dao
 interface PendingDeletionDao {
     @Query("SELECT * FROM pending_deletions")
     suspend fun all(): List<PendingDeletionEntity>

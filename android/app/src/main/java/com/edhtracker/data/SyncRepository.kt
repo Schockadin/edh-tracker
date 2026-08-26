@@ -3,6 +3,8 @@ package com.edhtracker.data
 import android.util.Log
 import androidx.room.withTransaction
 import com.edhtracker.data.local.AppDatabase
+import com.edhtracker.data.local.CollectionCardEntity
+import com.edhtracker.data.local.DeckCardEntity
 import com.edhtracker.data.local.DeckEntity
 import com.edhtracker.data.local.FormatEntity
 import com.edhtracker.data.local.GameEntity
@@ -10,14 +12,19 @@ import com.edhtracker.data.local.GroupEntity
 import com.edhtracker.data.local.OpponentEntity
 import com.edhtracker.data.local.PendingDeletionEntity
 import com.edhtracker.data.remote.ApiFactory
+import com.edhtracker.data.remote.CardImportRequest
 import com.edhtracker.data.remote.LoginRequest
 import com.edhtracker.data.remote.PushRequest
+import com.edhtracker.data.remote.ResolvedCardDto
+import com.edhtracker.data.remote.SyncCollectionCardDto
+import com.edhtracker.data.remote.SyncDeckCardDto
 import com.edhtracker.data.remote.SyncDeckDto
 import com.edhtracker.data.remote.SyncDeletionDto
 import com.edhtracker.data.remote.SyncFormatDto
 import com.edhtracker.data.remote.SyncGameDto
 import com.edhtracker.data.remote.SyncGroupDto
 import com.edhtracker.data.remote.SyncOpponentDto
+import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 import java.util.UUID
 
@@ -31,6 +38,8 @@ class SyncRepository(
     private val gameDao = db.gameDao()
     private val opponentDao = db.opponentDao()
     private val groupDao = db.groupDao()
+    private val deckCardDao = db.deckCardDao()
+    private val collectionDao = db.collectionCardDao()
     private val deletionDao = db.pendingDeletionDao()
 
     // --- Observed streams for the UI -------------------------------------
@@ -40,6 +49,13 @@ class SyncRepository(
     val games = gameDao.observeAll()
     val opponents = opponentDao.observeAll()
     val groups = groupDao.observeAll()
+    val collection = collectionDao.observeAll()
+
+    fun deckCards(deckUuid: String): Flow<List<DeckCardEntity>> =
+        deckCardDao.observeForDeck(deckUuid)
+
+    /** Result of a card import: how many were added and which names failed. */
+    data class ImportResult(val added: Int, val unresolved: List<String>)
 
     // --- Auth ------------------------------------------------------------
 
@@ -59,7 +75,7 @@ class SyncRepository(
         name: String,
         commander: String?,
         formatUuid: String,
-        url: String,
+        url: String?,
         platform: String,
         theme: String?,
         bracket: Int?,
@@ -146,6 +162,75 @@ class SyncRepository(
         }
     }
 
+    // --- Card imports (resolved server-side via Scryfall) ----------------
+
+    private suspend fun resolve(content: String) =
+        ApiFactory.create(settings.baseUrl())
+            .importCards("Bearer ${settings.token()}", CardImportRequest(content))
+
+    /** Replace a deck's card list from pasted/uploaded text. */
+    suspend fun importDeckList(deckUuid: String, content: String): Result<ImportResult> =
+        runCatching {
+            val response = resolve(content)
+            val resolved = response.resolved
+            val now = now()
+            db.withTransaction {
+                // Tombstone the old cards so the server drops them too, then insert.
+                for (old in deckCardDao.uuidsForDeck(deckUuid)) {
+                    deletionDao.add(PendingDeletionEntity("deck_cards", old))
+                }
+                deckCardDao.deleteForDeck(deckUuid)
+                deckCardDao.upsert(
+                    resolved.map { it.toDeckCard(deckUuid, now) },
+                )
+            }
+            ImportResult(resolved.size, response.unresolved)
+        }.onFailure { Log.w(TAG, "deck import failed", it) }
+
+    /** Add pasted/uploaded cards to the collection with the given zone. */
+    suspend fun importCollection(content: String, zone: String): Result<ImportResult> =
+        runCatching {
+            val response = resolve(content)
+            val resolved = response.resolved
+            val now = now()
+            db.withTransaction {
+                val existing = collectionDao.forZone(zone)
+                    .associateBy { it.name.lowercase() }
+                for (c in resolved) {
+                    val found = existing[c.name.lowercase()]
+                    if (found != null) {
+                        collectionDao.upsertOne(
+                            found.copy(
+                                quantity = found.quantity + c.quantity,
+                                updatedAt = now,
+                                dirty = true,
+                            ),
+                        )
+                    } else {
+                        collectionDao.upsertOne(c.toCollectionCard(zone, now))
+                    }
+                }
+            }
+            ImportResult(resolved.size, response.unresolved)
+        }.onFailure { Log.w(TAG, "collection import failed", it) }
+
+    suspend fun setCollectionZone(card: CollectionCardEntity, zone: String) {
+        val updated = card.copy(
+            zone = zone,
+            deckUuid = if (zone == "free") null else card.deckUuid,
+            updatedAt = now(),
+            dirty = true,
+        )
+        db.withTransaction { collectionDao.upsertOne(updated) }
+    }
+
+    suspend fun deleteCollectionCard(uuid: String) {
+        db.withTransaction {
+            collectionDao.deleteByUuid(uuid)
+            deletionDao.add(PendingDeletionEntity("collection_cards", uuid))
+        }
+    }
+
     // --- Sync ------------------------------------------------------------
 
     suspend fun sync(): Result<Unit> = runCatching {
@@ -161,11 +246,14 @@ class SyncRepository(
         val dirtyGames = gameDao.dirty()
         val dirtyOpps = opponentDao.dirty()
         val dirtyGroups = groupDao.dirty()
+        val dirtyDeckCards = deckCardDao.dirty()
+        val dirtyCollection = collectionDao.dirty()
         val deletions = deletionDao.all()
 
         val hasOutbound = dirtyFormats.isNotEmpty() || dirtyDecks.isNotEmpty() ||
             dirtyGames.isNotEmpty() || dirtyOpps.isNotEmpty() ||
-            dirtyGroups.isNotEmpty() || deletions.isNotEmpty()
+            dirtyGroups.isNotEmpty() || dirtyDeckCards.isNotEmpty() ||
+            dirtyCollection.isNotEmpty() || deletions.isNotEmpty()
 
         if (hasOutbound) {
             api.push(
@@ -176,6 +264,8 @@ class SyncRepository(
                     games = dirtyGames.map { it.toDto() },
                     opponents = dirtyOpps.map { it.toDto() },
                     groups = dirtyGroups.map { it.toDto() },
+                    deckCards = dirtyDeckCards.map { it.toDto() },
+                    collectionCards = dirtyCollection.map { it.toDto() },
                     deletions = deletions.map { SyncDeletionDto(it.tableName, it.uuid) },
                 ),
             )
@@ -185,6 +275,8 @@ class SyncRepository(
                 gameDao.clearDirty(dirtyGames.map { it.uuid })
                 opponentDao.clearDirty(dirtyOpps.map { it.uuid })
                 groupDao.clearDirty(dirtyGroups.map { it.uuid })
+                deckCardDao.clearDirty(dirtyDeckCards.map { it.uuid })
+                collectionDao.clearDirty(dirtyCollection.map { it.uuid })
                 deletionDao.clear()
             }
         }
@@ -208,6 +300,12 @@ class SyncRepository(
             if (resp.groups.isNotEmpty()) {
                 groupDao.upsert(resp.groups.map { it.toEntity() })
             }
+            if (resp.deckCards.isNotEmpty()) {
+                deckCardDao.upsert(resp.deckCards.map { it.toEntity() })
+            }
+            if (resp.collectionCards.isNotEmpty()) {
+                collectionDao.upsert(resp.collectionCards.map { it.toEntity() })
+            }
             for (del in resp.deletions) {
                 when (del.table) {
                     "decks" -> deckDao.deleteByUuid(del.uuid)
@@ -215,6 +313,8 @@ class SyncRepository(
                     "game_opponents" -> opponentDao.deleteByUuid(del.uuid)
                     "formats" -> formatDao.deleteByUuid(del.uuid)
                     "player_groups" -> groupDao.deleteByUuid(del.uuid)
+                    "deck_cards" -> deckCardDao.deleteByUuid(del.uuid)
+                    "collection_cards" -> collectionDao.deleteByUuid(del.uuid)
                 }
             }
         }
@@ -282,4 +382,63 @@ private fun GroupEntity.toDto() = SyncGroupDto(
 
 private fun SyncGroupDto.toEntity() = GroupEntity(
     uuid, name, playerNames, createdAt, updatedAt, dirty = false,
+)
+
+private fun DeckCardEntity.toDto() = SyncDeckCardDto(
+    uuid, deckUuid, name, quantity, scryfallId, setCode, collectorNumber,
+    manaValue, typeLine, colorIdentity, imageUrl, rarity, createdAt, updatedAt,
+)
+
+private fun SyncDeckCardDto.toEntity() = DeckCardEntity(
+    uuid, deckUuid, name, quantity, scryfallId, setCode, collectorNumber,
+    manaValue, typeLine, colorIdentity, imageUrl, rarity, createdAt, updatedAt,
+    dirty = false,
+)
+
+private fun CollectionCardEntity.toDto() = SyncCollectionCardDto(
+    uuid, name, quantity, zone, deckUuid, scryfallId, setCode, collectorNumber,
+    manaValue, typeLine, colorIdentity, imageUrl, rarity, createdAt, updatedAt,
+)
+
+private fun SyncCollectionCardDto.toEntity() = CollectionCardEntity(
+    uuid, name, quantity, zone, deckUuid, scryfallId, setCode, collectorNumber,
+    manaValue, typeLine, colorIdentity, imageUrl, rarity, createdAt, updatedAt,
+    dirty = false,
+)
+
+private fun ResolvedCardDto.toDeckCard(deckUuid: String, now: String) = DeckCardEntity(
+    uuid = UUID.randomUUID().toString(),
+    deckUuid = deckUuid,
+    name = name,
+    quantity = quantity,
+    scryfallId = scryfallId,
+    setCode = setCode,
+    collectorNumber = collectorNumber,
+    manaValue = manaValue,
+    typeLine = typeLine,
+    colorIdentity = colorIdentity,
+    imageUrl = imageUrl,
+    rarity = rarity,
+    createdAt = now,
+    updatedAt = now,
+    dirty = true,
+)
+
+private fun ResolvedCardDto.toCollectionCard(zone: String, now: String) = CollectionCardEntity(
+    uuid = UUID.randomUUID().toString(),
+    name = name,
+    quantity = quantity,
+    zone = zone,
+    deckUuid = null,
+    scryfallId = scryfallId,
+    setCode = setCode,
+    collectorNumber = collectorNumber,
+    manaValue = manaValue,
+    typeLine = typeLine,
+    colorIdentity = colorIdentity,
+    imageUrl = imageUrl,
+    rarity = rarity,
+    createdAt = now,
+    updatedAt = now,
+    dirty = true,
 )

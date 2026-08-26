@@ -4,6 +4,8 @@ import { eq, gt } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
+  collectionCards,
+  deckCards,
   decks,
   formats,
   gameOpponents,
@@ -12,7 +14,9 @@ import {
   syncTombstones,
 } from "@/db/schema";
 import type {
+  SyncCollectionCard,
   SyncDeck,
+  SyncDeckCard,
   SyncDeletion,
   SyncFormat,
   SyncGame,
@@ -35,14 +39,23 @@ export async function buildSnapshot(
 ): Promise<SyncPullResponse> {
   const serverTime = new Date();
 
-  const [formatRows, deckRows, gameRows, oppRows, groupRows] =
-    await Promise.all([
-      db.select().from(formats),
-      db.select().from(decks),
-      db.select().from(games),
-      db.select().from(gameOpponents),
-      db.select().from(playerGroups),
-    ]);
+  const [
+    formatRows,
+    deckRows,
+    gameRows,
+    oppRows,
+    groupRows,
+    deckCardRows,
+    collectionRows,
+  ] = await Promise.all([
+    db.select().from(formats),
+    db.select().from(decks),
+    db.select().from(games),
+    db.select().from(gameOpponents),
+    db.select().from(playerGroups),
+    db.select().from(deckCards),
+    db.select().from(collectionCards),
+  ]);
 
   // id → uuid maps for resolving foreign keys into portable uuids.
   const formatUuid = new Map(formatRows.map((f) => [f.id, f.uuid]));
@@ -127,6 +140,45 @@ export async function buildSnapshot(
       updatedAt: g.updatedAt.toISOString(),
     }));
 
+  const outDeckCards: SyncDeckCard[] = deckCardRows
+    .filter((c) => changed(c.updatedAt))
+    .map((c) => ({
+      uuid: c.uuid,
+      deckUuid: deckUuid.get(c.deckId) ?? "",
+      name: c.name,
+      quantity: c.quantity,
+      scryfallId: c.scryfallId,
+      setCode: c.setCode,
+      collectorNumber: c.collectorNumber,
+      manaValue: c.manaValue,
+      typeLine: c.typeLine,
+      colorIdentity: c.colorIdentity ?? [],
+      imageUrl: c.imageUrl,
+      rarity: c.rarity,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    }));
+
+  const outCollection: SyncCollectionCard[] = collectionRows
+    .filter((c) => changed(c.updatedAt))
+    .map((c) => ({
+      uuid: c.uuid,
+      name: c.name,
+      quantity: c.quantity,
+      zone: c.zone,
+      deckUuid: c.deckId != null ? (deckUuid.get(c.deckId) ?? null) : null,
+      scryfallId: c.scryfallId,
+      setCode: c.setCode,
+      collectorNumber: c.collectorNumber,
+      manaValue: c.manaValue,
+      typeLine: c.typeLine,
+      colorIdentity: c.colorIdentity ?? [],
+      imageUrl: c.imageUrl,
+      rarity: c.rarity,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    }));
+
   let deletions: SyncDeletion[] = [];
   if (since) {
     const tomb = await db
@@ -147,6 +199,8 @@ export async function buildSnapshot(
     games: outGames,
     opponents: outOpps,
     groups: outGroups,
+    deckCards: outDeckCards,
+    collectionCards: outCollection,
     deletions,
   };
 }
@@ -159,6 +213,8 @@ const DELETABLE = new Set([
   "game_opponents",
   "formats",
   "player_groups",
+  "deck_cards",
+  "collection_cards",
 ]);
 
 /**
@@ -176,6 +232,8 @@ export async function applyPush(
     games: 0,
     opponents: 0,
     groups: 0,
+    deckCards: 0,
+    collectionCards: 0,
     deletions: 0,
   };
 
@@ -363,7 +421,88 @@ export async function applyPush(
       applied.groups++;
     }
 
-    // 7. Deletions (DB triggers turn these into tombstones for other clients).
+    // 7. Deck cards (need a valid deck).
+    for (const c of payload.deckCards ?? []) {
+      const did = deckId.get(c.deckUuid);
+      if (did == null) continue;
+      await tx
+        .insert(deckCards)
+        .values({
+          uuid: c.uuid,
+          deckId: did,
+          name: c.name,
+          quantity: c.quantity,
+          scryfallId: c.scryfallId,
+          setCode: c.setCode,
+          collectorNumber: c.collectorNumber,
+          manaValue: c.manaValue,
+          typeLine: c.typeLine,
+          colorIdentity: c.colorIdentity,
+          imageUrl: c.imageUrl,
+          rarity: c.rarity,
+          createdAt: new Date(c.createdAt),
+        })
+        .onConflictDoUpdate({
+          target: deckCards.uuid,
+          set: {
+            deckId: did,
+            name: c.name,
+            quantity: c.quantity,
+            scryfallId: c.scryfallId,
+            setCode: c.setCode,
+            collectorNumber: c.collectorNumber,
+            manaValue: c.manaValue,
+            typeLine: c.typeLine,
+            colorIdentity: c.colorIdentity,
+            imageUrl: c.imageUrl,
+            rarity: c.rarity,
+          },
+        });
+      applied.deckCards++;
+    }
+
+    // 8. Collection cards (deck link optional).
+    for (const c of payload.collectionCards ?? []) {
+      const did = c.deckUuid ? (deckId.get(c.deckUuid) ?? null) : null;
+      await tx
+        .insert(collectionCards)
+        .values({
+          uuid: c.uuid,
+          name: c.name,
+          quantity: c.quantity,
+          zone: c.zone,
+          deckId: did,
+          scryfallId: c.scryfallId,
+          setCode: c.setCode,
+          collectorNumber: c.collectorNumber,
+          manaValue: c.manaValue,
+          typeLine: c.typeLine,
+          colorIdentity: c.colorIdentity,
+          imageUrl: c.imageUrl,
+          rarity: c.rarity,
+          createdAt: new Date(c.createdAt),
+        })
+        .onConflictDoUpdate({
+          target: collectionCards.uuid,
+          set: {
+            name: c.name,
+            quantity: c.quantity,
+            zone: c.zone,
+            deckId: did,
+            scryfallId: c.scryfallId,
+            setCode: c.setCode,
+            collectorNumber: c.collectorNumber,
+            manaValue: c.manaValue,
+            typeLine: c.typeLine,
+            colorIdentity: c.colorIdentity,
+            imageUrl: c.imageUrl,
+            rarity: c.rarity,
+          },
+        });
+      applied.collectionCards++;
+    }
+
+    // 9. Deletions (DB triggers turn these into tombstones for other clients).
     for (const del of payload.deletions ?? []) {
       if (!DELETABLE.has(del.table)) continue;
       switch (del.table) {
@@ -385,6 +524,14 @@ export async function applyPush(
           await tx
             .delete(playerGroups)
             .where(eq(playerGroups.uuid, del.uuid));
+          break;
+        case "deck_cards":
+          await tx.delete(deckCards).where(eq(deckCards.uuid, del.uuid));
+          break;
+        case "collection_cards":
+          await tx
+            .delete(collectionCards)
+            .where(eq(collectionCards.uuid, del.uuid));
           break;
       }
       applied.deletions++;

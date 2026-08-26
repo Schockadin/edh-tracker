@@ -15,8 +15,12 @@ nächsten Sync hochgeladen.
   propagiert.
 - **Spiele erfassen**: Deck wählen, Gegner-Commander, Bracket, Turns, Sieg-Typ
   und siegreichen Gegner festhalten.
-- **Decks ansehen & anlegen** (vollständige Deck-Pflege mit Scryfall-Anbindung
-  bleibt der WebApp vorbehalten).
+- **Decks ansehen & anlegen** (Deck-Link optional; vollständige Deck-Pflege mit
+  Scryfall-Anbindung bleibt der WebApp vorbehalten).
+- **Decklisten**: Deck antippen → Kartenliste ansehen und per Einfügen
+  importieren (Auflösung über die `/api/cards/import`-Route des Servers).
+- **Sammlung**: gesamte Sammlung per Einfügen erfassen; Karten als **verbaut**
+  oder **verfügbar** markieren.
 - **Statistik**: Spiele, Siege, Winrate und Siege pro Deck.
 - **Hintergrund-Sync** alle 6 Stunden via WorkManager, plus „Jetzt
   synchronisieren" in den Einstellungen.

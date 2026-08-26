@@ -43,6 +43,9 @@ export const constructionTypeEnum = pgEnum("construction_type", [
   "limited",
 ]);
 
+/** Whether a collected card is currently used in a deck or free/available. */
+export const cardZoneEnum = pgEnum("card_zone", ["used", "free"]);
+
 // --- Decks -----------------------------------------------------------------
 
 export const decks = pgTable("decks", {
@@ -59,7 +62,8 @@ export const decks = pgTable("decks", {
   // Optional free-text deck theme/archetype, available for every format.
   theme: text("theme"),
   platform: platformEnum("platform").notNull().default("other"),
-  url: text("url").notNull(),
+  // Optional link to the deck on an external platform (Moxfield, ManaBox, …).
+  url: text("url"),
   // Color identity as WUBRG letters, e.g. ["W","U","B"].
   colorIdentity: text("color_identity").array(),
   // Scryfall art-crop image URLs for the commander(s), for display.
@@ -180,6 +184,63 @@ export const appSettings = pgTable("app_settings", {
     .defaultNow(),
 });
 
+// --- Deck cards (real decklist, resolved via Scryfall) ---------------------
+
+export const deckCards = pgTable("deck_cards", {
+  id: serial("id").primaryKey(),
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
+  deckId: integer("deck_id")
+    .notNull()
+    .references(() => decks.id, { onDelete: "cascade" }),
+  // Canonical Scryfall card name.
+  name: text("name").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  // Scryfall metadata (null when the name could not be resolved).
+  scryfallId: text("scryfall_id"),
+  setCode: text("set_code"),
+  collectorNumber: text("collector_number"),
+  manaValue: integer("mana_value"),
+  typeLine: text("type_line"),
+  colorIdentity: text("color_identity").array(),
+  imageUrl: text("image_url"),
+  rarity: text("rarity"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// --- Collection cards ------------------------------------------------------
+
+export const collectionCards = pgTable("collection_cards", {
+  id: serial("id").primaryKey(),
+  uuid: uuid("uuid").defaultRandom().notNull().unique(),
+  name: text("name").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  // Whether the card is currently used in a deck or free/available.
+  zone: cardZoneEnum("zone").notNull().default("free"),
+  // Optional link to the deck the card is used in (only meaningful when used).
+  deckId: integer("deck_id").references(() => decks.id, {
+    onDelete: "set null",
+  }),
+  scryfallId: text("scryfall_id"),
+  setCode: text("set_code"),
+  collectorNumber: text("collector_number"),
+  manaValue: integer("mana_value"),
+  typeLine: text("type_line"),
+  colorIdentity: text("color_identity").array(),
+  imageUrl: text("image_url"),
+  rarity: text("rarity"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // --- Sync tombstones -------------------------------------------------------
 
 /**
@@ -203,11 +264,29 @@ export const syncTombstones = pgTable("sync_tombstones", {
 
 export const decksRelations = relations(decks, ({ many, one }) => ({
   games: many(games),
+  cards: many(deckCards),
   format: one(formats, {
     fields: [decks.formatId],
     references: [formats.id],
   }),
 }));
+
+export const deckCardsRelations = relations(deckCards, ({ one }) => ({
+  deck: one(decks, {
+    fields: [deckCards.deckId],
+    references: [decks.id],
+  }),
+}));
+
+export const collectionCardsRelations = relations(
+  collectionCards,
+  ({ one }) => ({
+    deck: one(decks, {
+      fields: [collectionCards.deckId],
+      references: [decks.id],
+    }),
+  }),
+);
 
 export const formatsRelations = relations(formats, ({ many }) => ({
   decks: many(decks),
@@ -244,6 +323,11 @@ export type GameOpponent = typeof gameOpponents.$inferSelect;
 export type NewGameOpponent = typeof gameOpponents.$inferInsert;
 export type SyncTombstone = typeof syncTombstones.$inferSelect;
 export type NewSyncTombstone = typeof syncTombstones.$inferInsert;
+export type DeckCard = typeof deckCards.$inferSelect;
+export type NewDeckCard = typeof deckCards.$inferInsert;
+export type CollectionCard = typeof collectionCards.$inferSelect;
+export type NewCollectionCard = typeof collectionCards.$inferInsert;
+export type CardZone = (typeof cardZoneEnum.enumValues)[number];
 
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type WinnerType = (typeof winnerTypeEnum.enumValues)[number];

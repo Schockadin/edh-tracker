@@ -29,7 +29,11 @@ import com.edhtracker.ui.AppViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DecksScreen(vm: AppViewModel, onAddDeck: () -> Unit) {
+fun DecksScreen(
+    vm: AppViewModel,
+    onAddDeck: () -> Unit,
+    onOpenDeck: (String) -> Unit,
+) {
     val decks by vm.decks.collectAsStateWithLifecycle()
     val formats by vm.formats.collectAsStateWithLifecycle()
     val formatName = formats.associate { it.uuid to it.name }
@@ -54,7 +58,7 @@ fun DecksScreen(vm: AppViewModel, onAddDeck: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(decks.filter { !it.archived }, key = { it.uuid }) { deck ->
-                Card {
+                Card(onClick = { onOpenDeck(deck.uuid) }) {
                     Column(Modifier.fillMaxSize().padding(12.dp)) {
                         Text(
                             deck.name,

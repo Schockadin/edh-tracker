@@ -13,9 +13,11 @@ import androidx.room.TypeConverters
         GameEntity::class,
         OpponentEntity::class,
         GroupEntity::class,
+        DeckCardEntity::class,
+        CollectionCardEntity::class,
         PendingDeletionEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -25,6 +27,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun gameDao(): GameDao
     abstract fun opponentDao(): OpponentDao
     abstract fun groupDao(): GroupDao
+    abstract fun deckCardDao(): DeckCardDao
+    abstract fun collectionCardDao(): CollectionCardDao
     abstract fun pendingDeletionDao(): PendingDeletionDao
 
     companion object {

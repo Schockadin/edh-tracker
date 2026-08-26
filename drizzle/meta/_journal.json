@@ -43,6 +43,13 @@
       "when": 1787761689376,
       "tag": "0005_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787779348816,
+      "tag": "0006_cards",
+      "breakpoints": true
     }
   ]
 }
