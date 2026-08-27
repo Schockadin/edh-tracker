@@ -182,7 +182,7 @@ export function DeckForm({
       <div className="card space-y-4">
         <div>
           <label htmlFor="url" className="label">
-            Deck-Link (Moxfield / ManaBox / Archidekt)
+            Deck-Link (Moxfield / ManaBox / Archidekt) — optional
           </label>
           <div className="flex gap-2">
             <input
@@ -195,7 +195,6 @@ export function DeckForm({
                 setUrl(e.target.value);
                 setPlatform(detectPlatform(e.target.value));
               }}
-              required
             />
             <button
               type="button"

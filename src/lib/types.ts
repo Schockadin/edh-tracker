@@ -19,7 +19,7 @@ export interface DeckView {
   formatHasCommander: boolean;
   theme: string | null;
   platform: Platform;
-  url: string;
+  url: string | null;
   colorIdentity: string[];
   commanderImage: string | null;
   partnerImage: string | null;
@@ -64,6 +64,31 @@ export interface PlayerGroupView {
   playerNames: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CardView {
+  id: number;
+  uuid: string;
+  name: string;
+  quantity: number;
+  scryfallId: string | null;
+  setCode: string | null;
+  collectorNumber: string | null;
+  manaValue: number | null;
+  typeLine: string | null;
+  colorIdentity: string[];
+  imageUrl: string | null;
+  rarity: string | null;
+}
+
+export interface CollectionCardView extends CardView {
+  // `quantity` is how many are owned; used/free are derived from the decklists:
+  // a card counts as used up to the total quantity built into decks.
+  usedQty: number;
+  freeQty: number;
+  // True when this entry is not a real collection row but was synthesised from a
+  // decklist (a card that is in a deck but has no collection entry of its own).
+  virtual: boolean;
 }
 
 export interface FormatView {

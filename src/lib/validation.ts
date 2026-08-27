@@ -50,7 +50,8 @@ export const deckInputSchema = z.object({
   partnerCommander: optionalText(160),
   formatId: z.coerce.number().int().positive("Bitte ein Format wählen"),
   theme: optionalText(120),
-  url: z.string().trim().url("Ungültige URL").max(500),
+  // Deck link is optional; validated as a URL only when provided.
+  url: optionalUrl(500),
   platform: z.enum(PLATFORMS),
   colorIdentity: z.array(z.enum(COLORS)).default([]),
   commanderImage: optionalUrl(500),

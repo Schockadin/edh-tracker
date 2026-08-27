@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/", label: "Dashboard", icon: "📊" },
   { href: "/decks", label: "Decks", icon: "🗂️" },
   { href: "/games", label: "Spiele", icon: "⚔️" },
+  { href: "/collection", label: "Sammlung", icon: "📚" },
   { href: "/settings", label: "Settings", icon: "⚙️" },
 ] as const;
 
@@ -65,7 +66,7 @@ export function Nav() {
 
       {/* Bottom tab bar (mobile) */}
       <nav className="nav-surface fixed inset-x-0 bottom-0 z-20 border-t divider sm:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4">
+        <div className="mx-auto grid max-w-md grid-cols-5">
           {LINKS.map((link) => (
             <Link
               key={link.href}

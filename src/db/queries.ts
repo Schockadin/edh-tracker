@@ -4,13 +4,23 @@ import { desc } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import type {
+  CardView,
+  CollectionCardView,
   DeckView,
   FormatView,
   GameView,
   PlayerGroupView,
 } from "@/lib/types";
 import { db } from "./index";
-import type { Deck, Game, Format, GameOpponent, PlayerGroup } from "./schema";
+import type {
+  CollectionCard,
+  Deck,
+  DeckCard,
+  Game,
+  Format,
+  GameOpponent,
+  PlayerGroup,
+} from "./schema";
 
 export const CACHE_TAGS = {
   decks: "decks",
@@ -18,6 +28,8 @@ export const CACHE_TAGS = {
   groups: "groups",
   formats: "formats",
   settings: "settings",
+  cards: "cards",
+  collection: "collection",
 } as const;
 
 function serializeDeck(deck: Deck & { format: Format }): DeckView {
@@ -145,6 +157,120 @@ export const getGame = unstable_cache(
   },
   ["games:one"],
   { tags: [CACHE_TAGS.games, CACHE_TAGS.decks, CACHE_TAGS.formats] },
+);
+
+function serializeCard(card: DeckCard): CardView {
+  return {
+    id: card.id,
+    uuid: card.uuid,
+    name: card.name,
+    quantity: card.quantity,
+    scryfallId: card.scryfallId,
+    setCode: card.setCode,
+    collectorNumber: card.collectorNumber,
+    manaValue: card.manaValue,
+    typeLine: card.typeLine,
+    colorIdentity: card.colorIdentity ?? [],
+    imageUrl: card.imageUrl,
+    rarity: card.rarity,
+  };
+}
+
+/** All cards of a deck, sorted by name. Cached; invalidated via `cards`. */
+export const getDeckCards = unstable_cache(
+  async (deckId: number): Promise<CardView[]> => {
+    const rows = await db.query.deckCards.findMany({
+      where: (c, { eq }) => eq(c.deckId, deckId),
+      orderBy: (c, { asc }) => [asc(c.name)],
+    });
+    return rows.map(serializeCard);
+  },
+  ["deck-cards:list"],
+  { tags: [CACHE_TAGS.cards] },
+);
+
+function serializeCollectionCard(
+  card: CollectionCard,
+  built: number,
+): CollectionCardView {
+  const usedQty = Math.min(card.quantity, built);
+  return {
+    id: card.id,
+    uuid: card.uuid,
+    name: card.name,
+    quantity: card.quantity,
+    scryfallId: card.scryfallId,
+    setCode: card.setCode,
+    collectorNumber: card.collectorNumber,
+    manaValue: card.manaValue,
+    typeLine: card.typeLine,
+    colorIdentity: card.colorIdentity ?? [],
+    imageUrl: card.imageUrl,
+    rarity: card.rarity,
+    usedQty,
+    freeQty: card.quantity - usedQty,
+    virtual: false,
+  };
+}
+
+/** A card that lives only in a decklist becomes a virtual, fully-used entry. */
+function serializeVirtualCard(sample: DeckCard, built: number): CollectionCardView {
+  return {
+    id: -1,
+    uuid: sample.uuid,
+    name: sample.name,
+    quantity: built,
+    scryfallId: sample.scryfallId,
+    setCode: sample.setCode,
+    collectorNumber: sample.collectorNumber,
+    manaValue: sample.manaValue,
+    typeLine: sample.typeLine,
+    colorIdentity: sample.colorIdentity ?? [],
+    imageUrl: sample.imageUrl,
+    rarity: sample.rarity,
+    usedQty: built,
+    freeQty: 0,
+    virtual: true,
+  };
+}
+
+/**
+ * The whole collection, sorted by name. `used`/`free` counts are derived from
+ * the decklists (`deck_cards`): a card is used up to the total quantity built
+ * into decks. Deck cards without a collection entry of their own are added as
+ * virtual, fully-used stock. Cached; invalidated via `collection` and `cards`.
+ */
+export const getCollectionCards = unstable_cache(
+  async (): Promise<CollectionCardView[]> => {
+    const [rows, builtRows] = await Promise.all([
+      db.query.collectionCards.findMany({
+        orderBy: (c, { asc }) => [asc(c.name)],
+      }),
+      db.query.deckCards.findMany(),
+    ]);
+
+    // Aggregate per card name: total built quantity + one row as metadata sample.
+    const built = new Map<string, { qty: number; sample: DeckCard }>();
+    for (const b of builtRows) {
+      const key = b.name.toLowerCase();
+      const acc = built.get(key);
+      if (acc) acc.qty += b.quantity;
+      else built.set(key, { qty: b.quantity, sample: b });
+    }
+
+    const owned = new Set(rows.map((r) => r.name.toLowerCase()));
+    const result = rows.map((r) =>
+      serializeCollectionCard(r, built.get(r.name.toLowerCase())?.qty ?? 0),
+    );
+    // Add deck-only cards as virtual stock.
+    for (const [key, { qty, sample }] of built) {
+      if (!owned.has(key)) result.push(serializeVirtualCard(sample, qty));
+    }
+    result.sort((a, b) => a.name.localeCompare(b.name));
+    return result;
+  },
+  ["collection:list"],
+  { tags: [CACHE_TAGS.collection, CACHE_TAGS.cards] },
 );
 
 function serializePlayerGroup(group: PlayerGroup): PlayerGroupView {

@@ -10,9 +10,19 @@ Passwort und ein signiertes Session-Cookie.
 
 ## Features
 
-- **Decks per Link** von Moxfield, ManaBox oder Archidekt speichern.
-  Der Deck-Name wird — wo möglich — per „Details laden" von der Plattform geholt
-  (best-effort; Moxfield blockt serverseitige Zugriffe teils per Cloudflare).
+- **Decks per Link** von Moxfield, ManaBox oder Archidekt speichern — der Link
+  ist **optional**. Der Deck-Name wird — wo möglich — per „Details laden" von der
+  Plattform geholt (best-effort; Moxfield blockt serverseitige Zugriffe teils
+  per Cloudflare).
+- **Echte Decklisten**: pro Deck eine optionale Kartenliste per **Einfügen**
+  (Plaintext) oder **Upload** (.txt / .csv). Namen werden serverseitig über
+  Scryfalls `/cards/collection` aufgelöst (Set, Typ, Farben, Bild, Mana-Wert).
+- **Sammlung**: die gesamte Kartensammlung erfassen (gleiche Import-Optionen wie
+  bei Decks). Ob eine Karte **verbaut** (in einem Deck) oder **verfügbar** ist,
+  wird automatisch aus den Decklisten abgeleitet — mengenbewusst: von 4 Kopien
+  gelten so viele als verbaut, wie in Decks stecken, der Rest als verfügbar.
+  Karten, die in einem Deck stecken, aber noch keinen Sammlungseintrag haben,
+  erscheinen automatisch als (verbauter) Bestand.
 - **Scryfall-Anbindung** für alle Kartenfelder (Commander, Partner, Gegner):
   Autocomplete beim Tippen und Validierung, sodass nur echte Karten gespeichert
   werden. Farbidentität und Commander-Bild werden automatisch von Scryfall
@@ -115,6 +125,42 @@ Die gesamte App liegt hinter einer Passwort-Hürde (`src/proxy.ts` prüft bei je
 Request das Session-Cookie). Es gibt bewusst **keine Registrierung** — nur das eine
 `APP_PASSWORD`. Halte `AUTH_SECRET` geheim; ein Wechsel invalidiert alle Sessions.
 
+## Sync-API
+
+Für native Clients (die **[Android-App](./android/README.md)**) stellt die App
+eine kleine JSON-API bereit. Sie wird über ein **Bearer-JWT** geschützt (dasselbe
+signierte Token wie die Web-Session, `AUTH_SECRET`) und läuft am Cookie-Gate
+vorbei (`/api/*` ist in `src/proxy.ts` ausgenommen).
+
+| Endpoint             | Methode | Zweck                                                        |
+| -------------------- | ------- | ----------------------------------------------------------- |
+| `/api/auth/login`    | POST    | `{ password }` → `{ token, expiresInDays }` (`APP_PASSWORD`)|
+| `/api/sync/pull`     | GET     | `?since=<ISO>` → geänderte Datensätze + Tombstones          |
+| `/api/sync/push`     | POST    | Upsert von Client-Änderungen (nach `uuid`) + Löschungen     |
+| `/api/cards/import`  | POST    | `{ content }` (Text/CSV) → über Scryfall aufgelöste Karten  |
+
+Der Sync umfasst Decks, Spiele, Gegner, Formate, Gruppen sowie **Decklisten**
+(`deck_cards`) und die **Sammlung** (`collection_cards`).
+
+**Identität & Änderungsverfolgung.** Jede syncbare Tabelle hat zusätzlich zur
+seriellen `id` eine stabile `uuid` (geräteübergreifende Identität), ein
+`updated_at` und – über die Tabelle `sync_tombstones` – eine Löschhistorie.
+DB-Trigger (in der Migration `0005_sync.sql`) pflegen beides automatisch:
+
+- `set_updated_at` setzt `updated_at = now()` bei jedem `UPDATE`,
+- `record_tombstone` schreibt bei jedem `DELETE` einen Eintrag in
+  `sync_tombstones` – egal ob die Löschung aus der WebApp, der API oder per SQL
+  kommt.
+
+Dadurch bleibt der WebApp-Code unverändert und der Sync trotzdem korrekt.
+Konfliktauflösung ist *last-write-wins* (Single-User).
+
+Nach dem Schema-Update einmal migrieren:
+
+```bash
+npm run db:migrate
+```
+
 ## Projektstruktur
 
 ```
@@ -123,6 +169,7 @@ src/
 │   ├── (app)/            # geschützter Bereich (Dashboard, Decks, Spiele)
 │   │   ├── decks/        # Deck-Verwaltung + Server Actions
 │   │   └── games/        # Spielerfassung + Server Actions
+│   ├── api/              # JSON-Sync-API (auth/login, sync/pull, sync/push)
 │   ├── login/            # Login-Seite + Auth-Actions
 │   ├── offline/          # Offline-Fallback der PWA
 │   ├── manifest.ts       # Web App Manifest
@@ -134,5 +181,6 @@ src/
 public/
 ├── sw.js                 # Service Worker (Caching-Strategien)
 └── icons/                # generierte PWA-Icons
-drizzle/                  # SQL-Migrationen
+drizzle/                  # SQL-Migrationen (inkl. 0005_sync für uuid/Trigger)
+android/                  # native Android-App (Kotlin/Compose/Room) — siehe android/README.md
 ```
