@@ -94,15 +94,23 @@ export async function resolveCards(lines: CardLine[]): Promise<ResolveResult> {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          // Scryfall requires a descriptive User-Agent and rejects requests
+          // without one (Node's fetch sends none by default).
+          "User-Agent": "edh-tracker/1.0 (+https://github.com/Schockadin/edh-tracker)",
         },
         body: JSON.stringify({ identifiers }),
         cache: "no-store",
       });
       if (res.ok) {
         data = ((await res.json()) as { data?: RawCard[] }).data ?? [];
+      } else {
+        console.warn(
+          `Scryfall collection request failed: HTTP ${res.status} ${res.statusText}`,
+        );
       }
-    } catch {
+    } catch (err) {
       // Network hiccup: treat this batch as unresolved (handled below).
+      console.warn("Scryfall collection request threw:", err);
       data = [];
     }
 
