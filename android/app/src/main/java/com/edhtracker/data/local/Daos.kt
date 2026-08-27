@@ -50,6 +50,9 @@ interface GameDao {
     @Query("SELECT * FROM games ORDER BY playedAt DESC")
     fun observeAll(): Flow<List<GameEntity>>
 
+    @Query("SELECT * FROM games WHERE uuid = :uuid")
+    suspend fun getByUuid(uuid: String): GameEntity?
+
     @Query("SELECT * FROM games WHERE dirty = 1")
     suspend fun dirty(): List<GameEntity>
 

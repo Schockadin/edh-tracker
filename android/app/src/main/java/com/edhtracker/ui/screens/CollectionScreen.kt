@@ -1,5 +1,6 @@
 package com.edhtracker.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,7 @@ private data class CardRow(
     val uuid: String,
     // Virtual rows come from a decklist and have no real collection entry.
     val virtual: Boolean,
+    val info: CardInfo,
 ) {
     val free: Int get() = owned - used
 }
@@ -50,6 +52,7 @@ fun CollectionScreen(vm: AppViewModel) {
     val deckCards by vm.allDeckCards.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf("all") }
     var showImport by remember { mutableStateOf(false) }
+    var detail by remember { mutableStateOf<CardInfo?>(null) }
 
     // Per card name across all decks: total built quantity + a metadata sample.
     val builtByName = remember(deckCards) {
@@ -58,12 +61,12 @@ fun CollectionScreen(vm: AppViewModel) {
     val owned = cards.map { it.name.lowercase() }.toSet()
     val realRows = cards.map {
         val built = builtByName[it.name.lowercase()]?.sumOf { c -> c.quantity } ?: 0
-        CardRow(it.name, it.quantity, minOf(it.quantity, built), it.uuid, virtual = false)
+        CardRow(it.name, it.quantity, minOf(it.quantity, built), it.uuid, false, CardInfo.from(it))
     }
     // Deck cards without a collection entry become virtual, fully-used stock.
     val virtualRows = builtByName.filterKeys { it !in owned }.map { (_, list) ->
         val qty = list.sumOf { it.quantity }
-        CardRow(list.first().name, qty, qty, list.first().uuid, virtual = true)
+        CardRow(list.first().name, qty, qty, list.first().uuid, true, CardInfo.from(list.first()))
     }
     val rows = (realRows + virtualRows).sortedBy { it.name.lowercase() }
     val free = rows.sumOf { it.free }
@@ -118,7 +121,10 @@ fun CollectionScreen(vm: AppViewModel) {
                             Text(
                                 card.name,
                                 style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { detail = card.info }
+                                    .padding(vertical = 8.dp),
                             )
                             if (card.used > 0) {
                                 Text(
@@ -160,4 +166,6 @@ fun CollectionScreen(vm: AppViewModel) {
             onSubmit = { vm.importCollection(it) },
         )
     }
+
+    detail?.let { CardDetailDialog(it, onDismiss = { detail = null }) }
 }

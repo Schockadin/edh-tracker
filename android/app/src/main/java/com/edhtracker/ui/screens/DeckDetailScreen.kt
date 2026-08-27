@@ -1,9 +1,11 @@
 package com.edhtracker.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,6 +38,7 @@ fun DeckDetailScreen(vm: AppViewModel, deckUuid: String, onClose: () -> Unit) {
     val cardsFlow = remember(deckUuid) { vm.deckCards(deckUuid) }
     val cards by cardsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     var showImport by remember { mutableStateOf(false) }
+    var detail by remember { mutableStateOf<CardInfo?>(null) }
 
     val total = cards.sumOf { it.quantity }
 
@@ -78,7 +81,13 @@ fun DeckDetailScreen(vm: AppViewModel, deckUuid: String, onClose: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     items(cards, key = { it.uuid }) { card ->
-                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { detail = CardInfo.from(card) }
+                                .padding(vertical = 4.dp),
+                        ) {
                             Text(
                                 "${card.quantity}×",
                                 fontWeight = FontWeight.SemiBold,
@@ -110,4 +119,6 @@ fun DeckDetailScreen(vm: AppViewModel, deckUuid: String, onClose: () -> Unit) {
             onSubmit = { vm.importDeckList(deckUuid, it) },
         )
     }
+
+    detail?.let { CardDetailDialog(it, onDismiss = { detail = null }) }
 }
