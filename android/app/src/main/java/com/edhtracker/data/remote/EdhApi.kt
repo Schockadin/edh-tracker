@@ -47,9 +47,14 @@ object ApiFactory {
         .build()
 
     fun create(baseUrl: String): EdhApi {
-        val normalized = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        var url = baseUrl.trim()
+        // Be forgiving: default to https when the user omits the scheme.
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "https://$url"
+        }
+        if (!url.endsWith("/")) url = "$url/"
         return Retrofit.Builder()
-            .baseUrl(normalized)
+            .baseUrl(url)
             .client(client)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()

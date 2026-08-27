@@ -11,14 +11,16 @@ import com.edhtracker.data.local.DeckEntity
 import com.edhtracker.data.local.FormatEntity
 import com.edhtracker.data.local.GameEntity
 import com.edhtracker.data.local.OpponentEntity
-import kotlinx.coroutines.flow.Flow
 import com.edhtracker.sync.SyncScheduler
+import java.io.IOException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 /** Single view model backing every screen; state comes from the local DB. */
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -64,7 +66,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 repo.sync()
                 _message.value = "Angemeldet und synchronisiert."
             } else {
-                _message.value = "Anmeldung fehlgeschlagen. URL & Passwort prüfen."
+                _message.value = loginErrorMessage(result.exceptionOrNull())
             }
             _busy.value = false
             onDone(result.isSuccess)
@@ -148,6 +150,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             )
             _busy.value = false
         }
+    }
+
+    /** Turn a login failure into something the user can act on. */
+    private fun loginErrorMessage(error: Throwable?): String = when {
+        error is HttpException && error.code() == 401 ->
+            "Falsches Passwort."
+        error is HttpException && error.code() == 404 ->
+            "API nicht gefunden (Server aktuell? /api/auth/login fehlt)."
+        error is HttpException ->
+            "Serverfehler ${error.code()}."
+        error is java.net.UnknownHostException ->
+            "Server nicht erreichbar – URL prüfen."
+        error is IOException ->
+            "Keine Verbindung zum Server."
+        else ->
+            "Anmeldung fehlgeschlagen – URL & Passwort prüfen."
     }
 
     private fun importSummary(r: SyncRepository.ImportResult): String {
