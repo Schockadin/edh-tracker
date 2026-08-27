@@ -33,7 +33,11 @@ import com.edhtracker.ui.shortDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GamesScreen(vm: AppViewModel, onAddGame: () -> Unit) {
+fun GamesScreen(
+    vm: AppViewModel,
+    onAddGame: () -> Unit,
+    onEditGame: (String) -> Unit,
+) {
     val games by vm.games.collectAsStateWithLifecycle()
     val decks by vm.decks.collectAsStateWithLifecycle()
     val deckName = decks.associate { it.uuid to it.name }
@@ -58,7 +62,7 @@ fun GamesScreen(vm: AppViewModel, onAddGame: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(games, key = { it.uuid }) { game ->
-                Card {
+                Card(onClick = { onEditGame(game.uuid) }) {
                     Column(Modifier.fillMaxSize().padding(12.dp)) {
                         androidx.compose.foundation.layout.Row(
                             verticalAlignment = Alignment.CenterVertically,

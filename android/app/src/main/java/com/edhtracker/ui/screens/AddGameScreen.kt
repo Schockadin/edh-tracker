@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,8 +48,10 @@ private class OppRow(commander: String = "", name: String = "") {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddGameScreen(vm: AppViewModel, onClose: () -> Unit) {
+fun AddGameScreen(vm: AppViewModel, onClose: () -> Unit, editUuid: String? = null) {
     val decks by vm.decks.collectAsStateWithLifecycle()
+    val games by vm.games.collectAsStateWithLifecycle()
+    val allOpponents by vm.opponents.collectAsStateWithLifecycle()
     val activeDecks = decks.filter { !it.archived }
 
     var deck by remember { mutableStateOf<DeckEntity?>(null) }
@@ -60,6 +63,31 @@ fun AddGameScreen(vm: AppViewModel, onClose: () -> Unit) {
     var notes by remember { mutableStateOf("") }
     val opponents = remember { listOf(OppRow()).toMutableStateList() }
     var winnerOpponentIndex by remember { mutableStateOf<Int?>(null) }
+    var initialized by remember { mutableStateOf(false) }
+
+    // When editing, prefill the form from the synced game once it has loaded.
+    LaunchedEffect(editUuid, decks, games, allOpponents) {
+        if (editUuid == null || initialized) return@LaunchedEffect
+        val g = games.firstOrNull { it.uuid == editUuid } ?: return@LaunchedEffect
+        deck = decks.firstOrNull { it.uuid == g.deckUuid }
+        winnerType = g.winnerType
+        winTypeSel = g.winType
+        bracket = g.bracket?.toString() ?: ""
+        turnCount = g.turnCount?.toString() ?: ""
+        winTurn = g.winTurn?.toString() ?: ""
+        notes = g.notes ?: ""
+        val opps = allOpponents.filter { it.gameUuid == editUuid }
+        opponents.clear()
+        if (opps.isEmpty()) {
+            opponents.add(OppRow())
+        } else {
+            opps.forEach { opponents.add(OppRow(it.commander ?: "", it.playerName ?: "")) }
+        }
+        winnerOpponentIndex = g.winnerOpponentUuid
+            ?.let { wu -> opps.indexOfFirst { it.uuid == wu } }
+            ?.takeIf { it >= 0 }
+        initialized = true
+    }
 
     val canSave = deck != null &&
         (winnerType != "opponent" || winnerOpponentIndex != null)
@@ -67,7 +95,7 @@ fun AddGameScreen(vm: AppViewModel, onClose: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Spiel erfassen") },
+                title = { Text(if (editUuid == null) "Spiel erfassen" else "Spiel bearbeiten") },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Zurück")
@@ -205,18 +233,34 @@ fun AddGameScreen(vm: AppViewModel, onClose: () -> Unit) {
                     // Remap the winner index against the filtered list.
                     val winnerRow = winnerOpponentIndex?.let { opponents.getOrNull(it) }
                     val mappedWinner = winnerRow?.let { kept.indexOf(it) }?.takeIf { it >= 0 }
-                    vm.addGame(
-                        deckUuid = chosen.uuid,
-                        winnerType = winnerType,
-                        bracket = bracket.toIntOrNull(),
-                        turnCount = turnCount.toIntOrNull(),
-                        winTurn = winTurn.toIntOrNull(),
-                        winType = winTypeSel,
-                        notes = notes.ifBlank { null },
-                        opponents = drafts,
-                        winnerOpponentIndex = mappedWinner,
-                        onDone = onClose,
-                    )
+                    if (editUuid == null) {
+                        vm.addGame(
+                            deckUuid = chosen.uuid,
+                            winnerType = winnerType,
+                            bracket = bracket.toIntOrNull(),
+                            turnCount = turnCount.toIntOrNull(),
+                            winTurn = winTurn.toIntOrNull(),
+                            winType = winTypeSel,
+                            notes = notes.ifBlank { null },
+                            opponents = drafts,
+                            winnerOpponentIndex = mappedWinner,
+                            onDone = onClose,
+                        )
+                    } else {
+                        vm.updateGame(
+                            gameUuid = editUuid,
+                            deckUuid = chosen.uuid,
+                            winnerType = winnerType,
+                            bracket = bracket.toIntOrNull(),
+                            turnCount = turnCount.toIntOrNull(),
+                            winTurn = winTurn.toIntOrNull(),
+                            winType = winTypeSel,
+                            notes = notes.ifBlank { null },
+                            opponents = drafts,
+                            winnerOpponentIndex = mappedWinner,
+                            onDone = onClose,
+                        )
+                    }
                 },
                 enabled = canSave,
                 modifier = Modifier.fillMaxWidth(),

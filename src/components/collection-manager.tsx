@@ -9,6 +9,7 @@ import {
 } from "@/app/(app)/collection/actions";
 import type { CollectionCardView } from "@/lib/types";
 import { CardImportBox } from "./card-import-box";
+import { CardName } from "./card-overlay";
 import { ColorPips } from "./ui";
 
 type Filter = "all" | "used" | "free";
@@ -95,7 +96,9 @@ export function CollectionManager({ cards }: { cards: CollectionCardView[] }) {
                 <span className="w-8 shrink-0 text-right font-mono text-muted">
                   {c.quantity}×
                 </span>
-                <span className="flex-1 text-strong">{c.name}</span>
+                <span className="flex-1">
+                  <CardName card={c} />
+                </span>
                 {c.colorIdentity.length > 0 ? (
                   <ColorPips colors={c.colorIdentity} />
                 ) : null}

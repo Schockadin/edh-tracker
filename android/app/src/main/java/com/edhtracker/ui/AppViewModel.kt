@@ -107,6 +107,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun updateGame(
+        gameUuid: String,
+        deckUuid: String,
+        winnerType: String,
+        bracket: Int?,
+        turnCount: Int?,
+        winTurn: Int?,
+        winType: String?,
+        notes: String?,
+        opponents: List<SyncRepository.OpponentDraft>,
+        winnerOpponentIndex: Int?,
+        onDone: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            repo.updateGame(
+                gameUuid, deckUuid, winnerType, bracket, turnCount, winTurn, winType,
+                notes, opponents, winnerOpponentIndex,
+            )
+            _message.value = "Spiel aktualisiert."
+            onDone()
+        }
+    }
+
     fun deleteGame(gameUuid: String) {
         viewModelScope.launch { repo.deleteGame(gameUuid) }
     }

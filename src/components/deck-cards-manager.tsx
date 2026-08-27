@@ -6,6 +6,7 @@ import { useTransition } from "react";
 import { clearDeckList, importDeckList } from "@/app/(app)/decks/actions";
 import type { CardView } from "@/lib/types";
 import { CardImportBox } from "./card-import-box";
+import { CardName } from "./card-overlay";
 import { ColorPips } from "./ui";
 
 export function DeckCardsManager({
@@ -69,7 +70,9 @@ export function DeckCardsManager({
               <span className="w-8 shrink-0 text-right font-mono text-muted">
                 {c.quantity}×
               </span>
-              <span className="flex-1 text-strong">{c.name}</span>
+              <span className="flex-1">
+                <CardName card={c} />
+              </span>
               {c.colorIdentity.length > 0 ? (
                 <ColorPips colors={c.colorIdentity} />
               ) : null}

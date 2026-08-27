@@ -155,6 +155,65 @@ class SyncRepository(
         }
     }
 
+    /** Update an existing game, replacing its opponents (like the web edit). */
+    suspend fun updateGame(
+        gameUuid: String,
+        deckUuid: String,
+        winnerType: String,
+        bracket: Int?,
+        turnCount: Int?,
+        winTurn: Int?,
+        winType: String?,
+        notes: String?,
+        opponents: List<OpponentDraft>,
+        winnerOpponentIndex: Int?,
+    ) {
+        val now = now()
+        val oppEntities = opponents.map {
+            OpponentEntity(
+                uuid = UUID.randomUUID().toString(),
+                gameUuid = gameUuid,
+                playerName = it.playerName,
+                commander = it.commander,
+                partnerCommander = null,
+                theme = it.theme,
+                createdAt = now,
+                updatedAt = now,
+                dirty = true,
+            )
+        }
+        val winnerUuid = winnerOpponentIndex
+            ?.takeIf { winnerType == "opponent" && it in oppEntities.indices }
+            ?.let { oppEntities[it].uuid }
+
+        db.withTransaction {
+            val old = gameDao.getByUuid(gameUuid)
+            // Replace opponents wholesale; tombstone the old ones for the server.
+            for (o in opponentDao.forGame(gameUuid)) {
+                deletionDao.add(PendingDeletionEntity("game_opponents", o.uuid))
+            }
+            opponentDao.deleteForGame(gameUuid)
+            gameDao.upsertOne(
+                GameEntity(
+                    uuid = gameUuid,
+                    deckUuid = deckUuid,
+                    playedAt = old?.playedAt ?: now,
+                    bracket = bracket,
+                    turnCount = turnCount,
+                    winnerType = winnerType,
+                    winnerOpponentUuid = winnerUuid,
+                    winTurn = winTurn,
+                    winType = winType,
+                    notes = notes,
+                    createdAt = old?.createdAt ?: now,
+                    updatedAt = now,
+                    dirty = true,
+                ),
+            )
+            if (oppEntities.isNotEmpty()) opponentDao.upsert(oppEntities)
+        }
+    }
+
     suspend fun deleteGame(gameUuid: String) {
         db.withTransaction {
             opponentDao.deleteForGame(gameUuid)

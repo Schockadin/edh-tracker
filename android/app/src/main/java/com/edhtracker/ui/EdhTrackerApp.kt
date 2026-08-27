@@ -100,7 +100,11 @@ fun EdhTrackerApp(vm: AppViewModel = viewModel()) {
             modifier = Modifier.padding(padding),
         ) {
             composable(Dest.Games.route) {
-                GamesScreen(vm, onAddGame = { navController.navigate("add_game") })
+                GamesScreen(
+                    vm,
+                    onAddGame = { navController.navigate("add_game") },
+                    onEditGame = { uuid -> navController.navigate("editGame/$uuid") },
+                )
             }
             composable(Dest.Decks.route) {
                 DecksScreen(
@@ -114,6 +118,14 @@ fun EdhTrackerApp(vm: AppViewModel = viewModel()) {
             composable(Dest.Settings.route) { SettingsScreen(vm) }
             composable("add_game") {
                 AddGameScreen(vm, onClose = { navController.popBackStack() })
+            }
+            composable("editGame/{uuid}") { entry ->
+                val uuid = entry.arguments?.getString("uuid").orEmpty()
+                AddGameScreen(
+                    vm,
+                    onClose = { navController.popBackStack() },
+                    editUuid = uuid,
+                )
             }
             composable("add_deck") {
                 AddDeckScreen(vm, onClose = { navController.popBackStack() })
