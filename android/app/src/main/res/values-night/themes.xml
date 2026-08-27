@@ -1,0 +1,4 @@
+<resources>
+    <!-- Dark launch-window theme; the visible UI is Compose Material3. -->
+    <style name="Theme.EdhTracker" parent="android:Theme.Material.NoActionBar" />
+</resources>
